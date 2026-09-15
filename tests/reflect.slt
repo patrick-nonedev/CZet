@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/reflect.slt — _Reflect(T) -> reflect_t (primitive) demo.
+ *
+ * reflect_t/reflect_field_t are primitive CZet types, always available
+ * with no headers:
+ *   struct reflect_field_t { const char *name; unsigned long offset;
+ *                            struct reflect_t *type; };
+ *   struct reflect_t { int kind; unsigned long size, align;
+ *                      const char *name; unsigned long count;
+ *                      struct reflect_t *elem;
+ *                      struct reflect_field_t *fields; };
+ * kind: 0 other, 1 void, 2 integer, 3 float, 4 pointer, 5 array,
+ *       6 struct, 7 union, 8 enum, 9 function, 10 typedef.
+ */
+
+#include <stdio.h>
+
+struct Point { int x, y; };
+union U { int i; float f; };
+typedef int myint;
+typedef struct Point PointAlias;
+
+int add(int a, int b) { return a + b; }
+
+int main(void)
+{
+    reflect_t ri = _Reflect(int);
+    reflect_t rp = _Reflect(struct Point);
+    reflect_t rpi = _Reflect(int *);
+    reflect_t ra = _Reflect(int[10]);
+    reflect_t ru = _Reflect(union U);
+    reflect_t rt = _Reflect(myint);
+    reflect_t rta = _Reflect(PointAlias);
+    reflect_t rf = _Reflect(int (int, int));
+    int x = 42;
+    reflect_t rx = _Reflect(x);
+
+    printf("int: kind=%d size=%lu align=%lu name=%s count=%lu\n",
+           ri.kind, ri.size, ri.align, ri.name, ri.count);
+    printf("Point: kind=%d size=%lu name=%s count=%lu\n",
+           rp.kind, rp.size, rp.name, rp.count);
+    for (unsigned long i = 0; i < rp.count; i++)
+        printf("  field %lu: %s off=%lu kind=%d size=%lu\n", i,
+               rp.fields[i].name, rp.fields[i].offset,
+               rp.fields[i].type->kind, rp.fields[i].type->size);
+    printf("int*: kind=%d elem_kind=%d elem_size=%lu\n",
+           rpi.kind, rpi.elem->kind, rpi.elem->size);
+    printf("int[10]: kind=%d count=%lu elem_kind=%d\n",
+           ra.kind, ra.count, ra.elem->kind);
+    printf("union: kind=%d count=%lu f0=%s off=%lu\n",
+           ru.kind, ru.count, ru.fields[0].name, ru.fields[0].offset);
+    printf("typedef myint: kind=%d name=%s elem_kind=%d\n",
+           rt.kind, rt.name, rt.elem->kind);
+    printf("func: kind=%d count=%lu ret=%d p0=%d\n",
+           rf.kind, rf.count, rf.elem->kind, rf.fields[0].type->kind);
+
+    int ok = (ri.kind == 2 && rp.kind == 6 && rpi.kind == 4 && ra.kind == 5
+              && ru.kind == 7 && rt.kind == 10 && rf.kind == 9
+              && rx.kind == 2 && ri.size == sizeof(int)
+              && rp.size == sizeof(struct Point)
+              && rp.count == 2 && ra.count == 10 && ra.elem->kind == 2
+              && rpi.elem->kind == 2 && rt.elem->kind == 2
+              && rp.fields[0].offset == 0);
+    printf(ok ? "[OK] reflect\n" : "[FAIL] reflect\n");
+    return ok ? 0 : 1;
+}

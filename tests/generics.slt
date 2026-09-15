@@ -1,0 +1,89 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/generics.slt — generics demo.
+ *
+ * The three monomorphized generic kinds:
+ *   (1) FUNCTION generics:   T id<T>(T a, T b);
+ *   (2) STRUCT generics:     struct box<T,U> { T a; U b; };
+ *   (3) UNION generics:      union cell<T> { T v; long long raw; };
+ *
+ * Instantiated with a type list in < > at the call site
+ * (`sum<int,int>(...)`) or at the type use (`struct box<int,double>`).
+ * Each instantiation emits dedicated concrete code (monomorphization).
+ */
+
+#include <stdio.h>
+
+/* ------------------------------------------------------------------ *
+ * (1) Generic functions: T sum<T,U>(T a, U b)
+ * Body re-parsed per instance with types bound.
+ * ------------------------------------------------------------------ */
+T sum<T>(T a, T b)
+{
+    return a + b;
+}
+
+T scale<T, U>(T x, U f)
+{
+    return x * f;
+}
+
+/* ------------------------------------------------------------------ *
+ * (2) Generic structs: a box over two types.
+ * `struct box<int,double> x;` monomorphizes one concrete layout
+ * (int at offset 0, double at offset 8).
+ * ------------------------------------------------------------------ */
+struct box<T, U>
+{
+    T a;
+    U b;
+};
+
+/* A generic function can take a generic struct: the parameter unifies
+   with the concrete call-site instance. */
+U box_second<T, U>(struct box<T, U> *p)
+{
+    return p->b;
+}
+
+/* ------------------------------------------------------------------ *
+ * (3) Generic unions: read the value back with whichever storage
+ * type is in use.
+ * ------------------------------------------------------------------ */
+union cell<T>
+{
+    T v;
+    long long raw;
+};
+
+int main(void)
+{
+    /* --- Functions --- */
+    int r = sum<int>(10, 32);                 /* -> 42 */
+    double scaled = scale<double, int>(3.5, 2); /* -> 7.0 */
+
+    /* --- Struct --- */
+    struct box<int, double> b;
+    b.a = 7;
+    b.b = 2.5;
+    double second = box_second<int, double>(&b);
+
+    struct box<double, char> bc;
+    bc.b = 'Q';
+    char secondc = box_second<double, char>(&bc);
+
+    /* --- Union --- */
+    union cell<double> d;
+    d.v = 1.5;
+    double as_double = d.v;
+
+    printf("sum<int>(10,32)          = %d\n", r);
+    printf("scale<double,int>(3.5,2) = %g\n", scaled);
+    printf("box{int,double}.second   = %g\n", second);
+    printf("box{double,char}.second  = %c (%d)\n", secondc, (int)secondc);
+    printf("union cell<double>.v     = %g\n", as_double);
+
+    int ok = (r == 42 && scaled == 7.0 && second == 2.5
+              && (int)secondc == 'Q' && as_double == 1.5);
+    printf(ok ? "[OK] g\n" : "[FAIL]\n");
+    return ok ? 0 : 1;
+}

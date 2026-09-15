@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/arena.slt — <utils/arena.h>. */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <utils/arena.h>
+
+int main(void)
+{
+    struct arena a;
+    int ok = 1;
+
+    if (arena_init(&a, 1024) != 0)
+    {
+        printf("[FAIL] arena init\n");
+        return 1;
+    }
+    {
+        void *p1 = arena_alloc(&a, 16, 8);
+        void *p2 = arena_alloc(&a, 7, 16);
+        ok = ok && p1 && p2;
+        ok = ok && ((uintptr_t)p2 % 16) == 0;
+        ok = ok && arena_used(&a) > 0 && arena_used(&a) <= 1024;
+        ok = ok && arena_capacity(&a) == 1024;
+        ok = ok && arena_alloc(&a, 1UL << 30, 1) == (void *)0;
+        ok = ok && arena_alloc(&a, 1, 3) == (void *)0; /* align no pot2 */
+    }
+    {
+        int *z = (int *)arena_calloc(&a, 4, sizeof(int), _Alignof(int));
+        ok = ok && z && z[0] == 0 && z[3] == 0;
+    }
+    arena_reset(&a);
+    ok = ok && arena_used(&a) == 0;
+    {
+        void *p3 = arena_alloc(&a, 1024, 1);
+        ok = ok && p3; /* cabe justo tras reset */
+        memset(p3, 0xAB, 1024);
+    }
+    arena_free(&a);
+    ok = ok && arena_used(&a) == 0;
+    printf(ok ? "[OK] arena\n" : "[FAIL] arena\n");
+    return ok ? 0 : 1;
+}

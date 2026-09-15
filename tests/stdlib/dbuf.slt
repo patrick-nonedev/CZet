@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/dbuf.slt — <utils/double_buffering.h> (SPSC, no threads). */
+#include <stdio.h>
+#include <utils/double_buffering.h>
+
+struct Frame
+{
+    int n;
+    char tag;
+};
+
+int main(void)
+{
+    struct dbuf<struct Frame> b;
+    struct Frame f0 = {0, 'a'}, f1 = {1, 'b'}, f2 = {2, 'c'}, out = {-1, '?'};
+    int ok = 1;
+
+    dbuf_init<struct Frame>(&b, &f0);
+    dbuf_read<struct Frame>(&b, &out);
+    ok = ok && out.n == 0 && out.tag == 'a';
+    dbuf_write<struct Frame>(&b, &f1);
+    dbuf_write<struct Frame>(&b, &f2);
+    dbuf_read<struct Frame>(&b, &out);
+    ok = ok && out.n == 2 && out.tag == 'c'; /* latest published */
+    printf(ok ? "[OK] dbuf\n" : "[FAIL] dbuf\n");
+    return ok ? 0 : 1;
+}

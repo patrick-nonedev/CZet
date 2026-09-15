@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/aco.slt — <utils/aco.h> over embedded libaco. */
+#include <stdio.h>
+#include <utils/aco.h>
+
+static int g_log[16];
+static int g_nlog;
+
+static void t1(void *arg)
+{
+    (void)arg;
+    g_log[g_nlog++] = 1;
+    co_yield();
+    g_log[g_nlog++] = 3;
+}
+
+static void t2(void *arg)
+{
+    (void)arg;
+    g_log[g_nlog++] = 2;
+    co_yield();
+    g_log[g_nlog++] = 4;
+}
+
+int main(void)
+{
+    struct co_sched s;
+    int ok;
+
+    if (co_sched_init(&s) != 0)
+    {
+        printf("[FAIL] aco init\n");
+        return 1;
+    }
+    if (!co_spawn(&s, t1, (void *)0, 0) || !co_spawn(&s, t2, (void *)0, 0))
+    {
+        printf("[FAIL] aco spawn\n");
+        return 1;
+    }
+    co_run(&s);
+    co_sched_free(&s);
+    ok = (g_nlog == 4 && g_log[0] == 1 && g_log[1] == 2 && g_log[2] == 3
+          && g_log[3] == 4);
+    printf(ok ? "[OK] aco\n" : "[FAIL] aco\n");
+    return ok ? 0 : 1;
+}

@@ -1,0 +1,89 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/save_memory.slt — <utils/save_memory.h> with _Reflect. */
+#include <stdio.h>
+#include <string.h>
+#include <utils/save_memory.h>
+
+struct Inner
+{
+    int a;
+    char b;
+};
+
+struct Data
+{
+    int id;
+    double v;
+    int arr[4];
+    struct Inner in;
+};
+
+typedef struct Data DataAlias;
+
+union U
+{
+    int i;
+    float f;
+};
+
+int main(void)
+{
+    struct Data d;
+    struct Data back;
+    union U u, uback;
+    int ok = 1;
+    FILE *f;
+
+    d.id = 7;
+    d.v = 2.5;
+    d.arr[0] = 1;
+    d.arr[1] = 2;
+    d.arr[2] = 3;
+    d.arr[3] = 4;
+    d.in.a = -9;
+    d.in.b = 'Q';
+    u.f = 1.5f;
+
+    f = tmpfile();
+    if (!f)
+    {
+        printf("[FAIL] save_memory tmpfile\n");
+        return 1;
+    }
+    /* via generics */
+    if (sm_save<DataAlias>(f, &d) != 0)
+        ok = 0;
+    /* via core + explicit _Reflect */
+    {
+        reflect_t ru = _Reflect(u);
+        if (sm_save_r(f, &u, &ru) != 0)
+            ok = 0;
+    }
+    /* pointers do not serialize (non-generic core: current CZet
+       allows one instantiation per generic function and TU) */
+    {
+        int x = 1;
+        int *p = &x;
+        reflect_t rp = _Reflect(p);
+        if (sm_save_r(f, &p, &rp) == 0)
+            ok = 0;
+    }
+    rewind(f);
+    memset(&back, 0xAA, sizeof(back));
+    if (sm_load<DataAlias>(f, &back) != 0)
+        ok = 0;
+    memset(&uback, 0, sizeof(uback));
+    {
+        reflect_t ru = _Reflect(uback);
+        if (sm_load_r(f, &uback, &ru) != 0)
+            ok = 0;
+    }
+    fclose(f);
+
+    ok = ok && back.id == 7 && back.v == 2.5;
+    ok = ok && back.arr[0] == 1 && back.arr[3] == 4;
+    ok = ok && back.in.a == -9 && back.in.b == 'Q';
+    ok = ok && uback.f == 1.5f;
+    printf(ok ? "[OK] save_memory\n" : "[FAIL] save_memory\n");
+    return ok ? 0 : 1;
+}

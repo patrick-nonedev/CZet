@@ -1,0 +1,57 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stdio.h>
+
+/* ---- CZet _Macro repetition demo: $( ... ) with *, + and ? ----
+ *
+ * Demonstrates Rust-style repetition in _Macro:
+ *   • `$($e: expr),*`  — variadic (zero or more) comma-separated exprs
+ *   • `$($v: expr),*`  — variadic used in a statement expansion
+ *   • `$($t: ident)+`  — one-or-more idents, no separator
+ *   • `$($fmt: expr)?` — optional (zero or one) capture
+ *   • separators between pattern iterations and between expansion items
+ */
+
+/* --- VEC_LEN: count the arguments of a variadic call: `VEC_LEN<1,2,3>`
+     becomes `sizeof((int[]){0,1,2,3})/sizeof(int)-1` == 3. --- */
+_Macro VEC_LEN<$($e: expr),*> {
+  (VEC_LEN $($e),*) { sizeof((int[]){0, $($e),*}) / sizeof(int) - 1 }
+};
+
+/* --- PRINT_VALS: emit one printf per argument. --- */
+_Macro PRINT_VALS<$($v: expr),*> {
+  (PRINT_VALS $($v),*) {
+    $(printf("  [%d]\n", $v);)*
+  }
+};
+
+/* --- TOKENS_OF: make an anonymous enum out of one-or-more idents. --- */
+_Macro TOKENS_OF<$($t: ident)+> {
+  (TOKENS_OF $($t)+) { enum { $($t),* }; }
+};
+
+/* --- OPT_PRINT: when given a format string, print it with an argument. --- */
+_Macro OPT_PRINT<$($fmt: expr)?> {
+  (OPT_PRINT $($fmt)?) { $(printf($fmt, 42);)? }
+};
+
+int main()
+{
+  int a = VEC_LEN<1, 2, 3>;
+  int b = VEC_LEN<>;
+  printf("VEC_LEN<1,2,3> = %d (expect 3)\n", a);
+  printf("VEC_LEN<>      = %d (expect 0)\n", b);
+
+  printf("PRINT_VALS<10, 20, 30>:\n");
+  PRINT_VALS<10, 20, 30>
+  printf("PRINT_VALS<>:\n");
+  PRINT_VALS<>
+
+  TOKENS_OF<alpha beta gamma>
+  printf("TOKENS_OF created an enum (%d %d %d)\n", alpha, beta, gamma);
+
+  OPT_PRINT<"%d\n">
+  OPT_PRINT<>
+
+  printf("\nAll repetition tests done.\n");
+  return 0;
+}

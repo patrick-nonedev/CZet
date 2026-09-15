@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# czet-gcc: wrapper around the project's xgcc driver with everything
+# needed on NixOS:
+#   - -B <build>/gcc/          to locate cc1 (in-tree driver)
+#   - -B/-L <glibc lib dir>    for crt*.o and -lc
+#   - -L <build>/.../libgcc    for libgcc.a
+#   - -static-libgcc           (no shared libgcc_s; NixOS link)
+#   - -isystem <glibc include> (NixOS has no /usr/include)
+#
+# Outside the nix shell (no gcc on PATH), relaunch through nix-shell.
+#
+# Usage: like gcc:  czet-gcc -std=gnu23 <src> -o <out>
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BUILD_DIR="$ROOT/build"
+XGCC="$BUILD_DIR/gcc/xgcc"
+SHELL_NIX="$ROOT/shell.nix"
+
+[ -x "$XGCC" ] || {
+  echo "czet-gcc: $XGCC not found (run 'make build' first)." >&2
+  exit 1
+}
+
+# Outside the nix shell (no gcc), relaunch through it.
+if ! command -v gcc >/dev/null 2>&1; then
+  args="$(printf '%q ' "$@")"
+  exec nix-shell "$SHELL_NIX" --run "bash \"$0\" $args"
+fi
+
+# glibc paths probed from the shell gcc (not hardcoded).
+GLIBC_LIB="$(dirname "$(gcc -print-file-name=crt1.o)")"
+GLIBC_INC="$(printf '#include <stddef.h>\n' | gcc -E - 2>/dev/null \
+               | grep -m1 stddef.h \
+               | sed -n 's/.*"\(.*\)\/stddef.h".*/\1/p')"
+LIBGCC_DIR="$BUILD_DIR/x86_64-pc-linux-gnu/libgcc"
+
+exec "$XGCC" \
+  -B"$BUILD_DIR/gcc/" \
+  -B"$GLIBC_LIB" -L"$GLIBC_LIB" -L"$LIBGCC_DIR" \
+  -static-libgcc \
+  -isystem "$GLIBC_INC" \
+  "$@"

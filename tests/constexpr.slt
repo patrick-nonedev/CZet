@@ -1,0 +1,163 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stdio.h>
+#include <limits.h>
+#include <stdlib.h>
+
+typedef unsigned _BitInt(2044) u2048;
+typedef unsigned _BitInt(8530) u8530;
+
+constexpr size_t loops(int iterations)
+{
+    size_t ret = 0;
+    for (size_t i = 0; i < iterations; ++i)
+    {
+        ret += i;
+    }
+
+    return ret;
+}
+
+constexpr size_t factorial(int n)
+{
+    size_t ret = 1; // becouse 0! == 1
+    
+    for (size_t i = 1; i <= n; ++i)
+    {
+        ret *= i;
+    }
+
+    return ret;
+}
+
+constexpr u2048 large_factorial(int n)
+{
+    u2048 ret = 1;
+    for (u2048 i = 1; i <= n; ++i)
+    {
+        ret *= i;
+    }
+
+    return ret;
+}
+
+constexpr u8530 very_large_factorial(int n)
+{
+    u8530 ret = 1;
+    for (u8530 i = 1; i <= n; ++i)
+    {
+        ret *= i;
+    }
+
+    return ret;
+}
+
+size_t max_digits(size_t bits)
+{
+    return (bits * 193) / 641 + 1; // Idk bro, it's the formula, I copy-paste it from chatgpt
+}
+
+void print_u2048(u2048 n)
+{
+    if (n == 0)
+    {
+        printf("0");
+        return;
+    }
+
+    size_t digits = max_digits(sizeof(n) * CHAR_BIT); // sizeof(n) * CHAR_BIT gives us the bits of a type, aprox
+    char* buffer = malloc(digits * sizeof(char));
+    int pos = 0;
+    while (n > 0)
+    {
+        buffer[pos++] = '0' + (char)(n % 10);
+        n /= 10;
+    }
+
+    // Print the digits backwards
+    while (--pos >= 0)
+    {
+        putchar(buffer[pos]);
+    }
+    putchar('\n');
+
+    free(buffer);
+}
+
+void print_u8530(u8530 n)
+{
+    if (n == 0)
+    {
+        printf("0");
+        return;
+    }
+
+    size_t digits = max_digits(sizeof(n) * CHAR_BIT); // sizeof(n) * CHAR_BIT gives us the bits of a type, aprox
+    char* buffer = malloc(digits * sizeof(char));
+    int pos = 0;
+    while (n > 0)
+    {
+        buffer[pos++] = '0' + (char)(n % 10);
+        n /= 10;
+    }
+
+    // Print the digits backwards
+    while (--pos >= 0)
+    {
+        putchar(buffer[pos]);
+    }
+    putchar('\n');
+
+    free(buffer);
+}
+
+// this one is generic
+void print_large_int<T>(T n)
+{
+    if (n == 0)
+    {
+        printf("0");
+        return;
+    }
+
+    size_t digits = max_digits(sizeof(n) * CHAR_BIT); // sizeof(n) * CHAR_BIT gives us the bits of a type, aprox
+    char* buffer = malloc(digits * sizeof(char));
+    int pos = 0;
+    while (n > 0)
+    {
+        buffer[pos++] = '0' + (char)(n % 10);
+        n /= 10;
+    }
+
+    // Print the digits backwards
+    while (--pos >= 0)
+    {
+        putchar(buffer[pos]);
+    }
+    putchar('\n');
+
+    free(buffer);
+}
+
+int main()
+{
+    constexpr size_t _factorial = factorial(5); // 120
+    constexpr size_t _factorial2 = factorial(20); // The maximum of a size_t in 64bits
+    constexpr u2048 _factorial3 = large_factorial(300);
+    constexpr u8530 _factorial4 = very_large_factorial(1000);
+
+
+    printf("Test 1: %zu\n", loops(100000));
+    printf("Test 2: %zu\n", _factorial);
+
+    printf("Test 3, a u2048 (yes, 2048 bits): ");
+    // print_u2048(_factorial3);
+    print_large_int<u2048>(_factorial3); // instantiates print_large_int as u2048
+    printf("\n");
+
+    printf("Test 4, a u8530 (yes, 8530 bits): ");
+    // print_u8530(_factorial4);
+    print_large_int<u8530>(_factorial4); // same, instantiated as u8530
+    printf("\n");
+
+    return 0;
+}

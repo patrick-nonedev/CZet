@@ -1,0 +1,13 @@
+# We need stdatomic.h from GCC's include files.
+USER_H = $(srcdir)/ginclude/stdatomic.h \
+	$(EXTRA_HEADERS)
+
+# OpenBSD-specific D support.
+openbsd-d.o: $(srcdir)/config/openbsd-d.cc
+	$(COMPILE) $<
+	$(POSTCOMPILE)
+
+# OpenBSD-specific Rust support.
+openbsd-rust.o: $(srcdir)/config/openbsd-rust.cc
+	$(COMPILE) $<
+	$(POSTCOMPILE)

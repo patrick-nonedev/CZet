@@ -1,0 +1,8 @@
+# Triggered by --with-libf7=math-symbols
+#
+# Add weak aliases for the math.h functions, like sin for __f7_sin
+# when double is a 64-bit type, and similar for sinl and long double.
+
+WITH_LIBF7_MATH_SYMBOLS = 1
+
+F7_FLAGS += -DWITH_LIBF7_MATH_SYMBOLS

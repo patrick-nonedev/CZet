@@ -1,0 +1,134 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/operators.slt — operator overloading demo.
+ *
+ * `return-type _Operator ( Type , "op" ) { ... }` defines an operator for
+ * user type `Type`.  The body takes the operands as pointers named `a`
+ * (and `b`), and the compiler rewrites each use into a call of the
+ * generated `__operator__<Type>__<suffix>` function:
+ *
+ *     binary   (+ - * / % == != < > <= >= & | ^ << >>):  T *a, T *b -> T
+ *     compound (+= -= *= /= %= &= |= ^= <<= >>=):       T *a, T *b -> T *
+ *     unary    (! ~):                                   T *a        -> T
+ *     ++/--                                             T *a        -> void
+ *     =                                                 T *a, T *b  -> void
+ *
+ * Operands pass by address; when one is an rvalue (another operator's
+ * result, a compound literal) the compiler materializes a temporary.
+ * ++/-- keep C value semantics: `x = a++` yields the old value,
+ * `x = ++a` the new one.
+ */
+
+#include <stdio.h>
+
+struct Vec2
+{
+    int x;
+    int y;
+};
+
+struct Vec2 _Operator(struct Vec2, "+") { struct Vec2 r; r.x = a->x + b->x;  r.y = a->y + b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "-") { struct Vec2 r; r.x = a->x - b->x;  r.y = a->y - b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "*") { struct Vec2 r; r.x = a->x * b->x;  r.y = a->y * b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "/") { struct Vec2 r; r.x = a->x / b->x;  r.y = a->y / b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "%") { struct Vec2 r; r.x = a->x % b->x;  r.y = a->y % b->y;  return r; }
+
+int _Operator(struct Vec2, "==") { return a->x == b->x && a->y == b->y; }
+int _Operator(struct Vec2, "!=") { return a->x != b->x || a->y != b->y; }
+int _Operator(struct Vec2, "<")  { return a->x < b->x && a->y < b->y; }
+int _Operator(struct Vec2, ">")  { return a->x > b->x && a->y > b->y; }
+int _Operator(struct Vec2, "<=") { return a->x <= b->x && a->y <= b->y; }
+int _Operator(struct Vec2, ">=") { return a->x >= b->x && a->y >= b->y; }
+
+struct Vec2 _Operator(struct Vec2, "&")  { struct Vec2 r; r.x = a->x & b->x;  r.y = a->y & b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "|")  { struct Vec2 r; r.x = a->x | b->x;  r.y = a->y | b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "^")  { struct Vec2 r; r.x = a->x ^ b->x;  r.y = a->y ^ b->y;  return r; }
+struct Vec2 _Operator(struct Vec2, "<<") { struct Vec2 r; r.x = a->x << b->x; r.y = a->y << b->y; return r; }
+struct Vec2 _Operator(struct Vec2, ">>") { struct Vec2 r; r.x = a->x >> b->x; r.y = a->y >> b->y; return r; }
+
+int _Operator(struct Vec2, "!") { return !(a->x) && !(a->y); }
+int _Operator(struct Vec2, "~") { return (a->x) ^ 0xFF; }
+
+struct Vec2 *_Operator(struct Vec2, "+=") { a->x += b->x; a->y += b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "-=") { a->x -= b->x; a->y -= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "*=") { a->x *= b->x; a->y *= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "/=") { a->x /= b->x; a->y /= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "%=") { a->x %= b->x; a->y %= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "&=") { a->x &= b->x; a->y &= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "|=") { a->x |= b->x; a->y |= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "^=") { a->x ^= b->x; a->y ^= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, "<<="){ a->x <<= b->x; a->y <<= b->y; return a; }
+struct Vec2 *_Operator(struct Vec2, ">>="){ a->x >>= b->x; a->y >>= b->y; return a; }
+
+void _Operator(struct Vec2, "=")  { a->x = b->x; a->y = b->y; }
+void _Operator(struct Vec2, "++") { a->x = a->x + 1; a->y = a->y + 1; }
+void _Operator(struct Vec2, "--") { a->x = a->x - 1; a->y = a->y - 1; }
+
+static int checks;
+static int failed;
+
+static void expect(int c, const char *name)
+{
+    checks++;
+    if (!c)
+        { failed++; printf("[FAIL] %s\n", name); }
+}
+
+int main(void)
+{
+    struct Vec2 a = { 1, 2 };
+    struct Vec2 b = { 3, 4 };
+    struct Vec2 c;
+    struct Vec2 z = { 0, 0 };
+    struct Vec2 m = { 15, 15 };
+
+    /* binarios con rvalues en cualquier lado */
+    c = (a + b) + a;                    expect(c.x == 5 && c.y == 8,  "(a+b)+a");
+    c = a + (b + a);                    expect(c.x == 5 && c.y == 8,  "a+(b+a)");
+    c = a * b;                          expect(c.x == 3 && c.y == 8,  "a*b");
+    c = b / a;                          expect(c.x == 3 && c.y == 2,  "b/a");
+    c = b % a;                          expect(c.x == 0 && c.y == 0,  "b%a");
+    c = a << b;                         expect(c.x == 8 && c.y == 32, "a<<b");
+    c = c >> a;                         expect(c.x == 4 && c.y == 8,  "c>>a");
+    c = a & b;                          expect(c.x == 1 && c.y == 0,  "a&b");
+    c = a | b;                          expect(c.x == 3 && c.y == 6,  "a|b");
+    c = a ^ b;                          expect(c.x == 2 && c.y == 6,  "a^b");
+
+    /* comparaciones (lvalues y rvalues) */
+    expect((a + b) == (b + a),          "(a+b)==(b+a)");
+    expect((a + b) != (a - b),          "(a+b)!=(a-b)");
+    expect(a < (a + b),                 "a<(a+b)");
+    expect((a + b) > a,                 "(a+b)>a");
+    expect(a <= a && a >= a,            "a<=a && a>=a");
+    expect(!z,                          "!z");
+    expect(!(a - a),                    "!(a-a) rvalue");
+    expect(~z == 0xFF,                  "~z");
+
+    /* compound ops with rvalue rhs */
+    c = a; c += (a + b);                expect(c.x == 5 && c.y == 8,  "c+=(a+b)");
+    c -= (a + b);                       expect(c.x == 1 && c.y == 2,  "c-=(a+b)");
+    c *= z + b;                         expect(c.x == 3 && c.y == 8,  "c*=z+b");
+    c /= a;                             expect(c.x == 3 && c.y == 4,  "c/=a");
+    c %= b;                             expect(c.x == 0 && c.y == 0,  "c%=b");
+    c = a; c &= m;                      expect(c.x == 1 && c.y == 2,  "c&=m");
+    c |= b;                             expect(c.x == 3 && c.y == 6,  "c|=b");
+    c ^= a;                             expect(c.x == 2 && c.y == 4,  "c^=a");
+    c = a; c <<= b;                     expect(c.x == 8 && c.y == 32, "c<<=b");
+    c >>= a;                            expect(c.x == 4 && c.y == 8,  "c>>=a");
+
+    /* '=' from lvalues and rvalues (uses the overloaded operator) */
+    c = a;                              expect(c.x == 1 && c.y == 2,  "c=a");
+    c = a + b;                          expect(c.x == 4 && c.y == 6,  "c=a+b via '='");
+
+    /* ++/-- with value semantics */
+    c = a;
+    struct Vec2 old = c++;
+    expect(old.x == 1 && old.y == 2 && c.x == 2 && c.y == 3, "c++ valor");
+    c--;
+    expect(c.x == 1 && c.y == 2,        "c-- stmt");
+    struct Vec2 pre = ++c;
+    expect(pre.x == 2 && pre.y == 3 && c.x == 2 && c.y == 3, "++c valor");
+
+    printf("checks=%d failed=%d -> %s\n", checks, failed,
+           failed ? "FAIL" : "OK");
+    return failed ? 1 : 0;
+}

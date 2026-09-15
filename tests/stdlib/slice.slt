@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/slice.slt — <utils/slice.h> with CZet generics. */
+#include <stdio.h>
+#include <utils/slice.h>
+
+int main(void)
+{
+    int buf[6] = {10, 20, 30, 40, 50, 60};
+    struct slice<int> s;
+    int ok = 1;
+
+    slice_make<int>(&s, buf, 6);
+    ok = ok && slice_len<int>(&s) == 6;
+    {
+        int *p = (void *)0;
+        slice_at<int>(&s, 0, &p);
+        ok = ok && p && *p == 10;
+        slice_at<int>(&s, 5, &p);
+        ok = ok && p && *p == 60;
+        slice_at<int>(&s, 6, &p);
+        ok = ok && !p;
+    }
+    {
+        struct slice<int> t;
+        int *p = (void *)0, *q = (void *)0;
+        slice_sub<int>(&s, 2, 10, &t);
+        slice_at<int>(&t, 0, &p);
+        ok = ok && t.len == 4 && p && *p == 30;
+        slice_at<int>(&t, 1, &q);
+        *q = 41;
+        ok = ok && buf[3] == 41; /* view: writes through */
+    }
+    {
+        struct slice<int> e;
+        slice_sub<int>(&s, 99, 3, &e);
+        ok = ok && e.len == 0;
+    }
+    printf(ok ? "[OK] slice\n" : "[FAIL] slice\n");
+    return ok ? 0 : 1;
+}

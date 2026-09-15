@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stdio.h>
+
+T sum<T>(T a, T b)
+{
+    return a + b;
+}
+
+int main()
+{
+    printf("%d\n", sum<int>(5, 8));
+    printf("%f\n", sum<float>(5.8f, 20.003f));
+    return 0;
+}

@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/hashmap.slt — <utils/hashmap.h>: 500 keys, rehash, delete. */
+#include <stdio.h>
+#include <utils/hashmap.h>
+
+int main(void)
+{
+    static char keys[500][16];
+    static int vals[500];
+    struct hmap m;
+    int ok = 1, i;
+
+    if (hmap_init(&m) != 0)
+        return 1;
+    for (i = 0; i < 500; i++)
+    {
+        snprintf(keys[i], sizeof(keys[i]), "k%d", i);
+        vals[i] = i * 3;
+        if (hmap_put(&m, keys[i], &vals[i]) != 0)
+            ok = 0;
+    }
+    ok = ok && hmap_count(&m) == 500;
+    for (i = 0; i < 500; i++)
+    {
+        int *v = (int *)hmap_get(&m, keys[i]);
+        if (!v || *v != i * 3)
+            ok = 0;
+    }
+    ok = ok && hmap_get(&m, "no-existe") == (void *)0;
+    for (i = 0; i < 250; i++)
+        ok = ok && hmap_del(&m, keys[i]) == 0;
+    ok = ok && hmap_count(&m) == 250;
+    ok = ok && hmap_del(&m, keys[0]) == -1; /* ya borrada */
+    for (i = 250; i < 500; i++)
+    {
+        int *v = (int *)hmap_get(&m, keys[i]);
+        if (!v || *v != i * 3)
+            ok = 0;
+    }
+    /* reinsert over tombstones */
+    for (i = 0; i < 250; i++)
+        ok = ok && hmap_put(&m, keys[i], &vals[i]) == 0;
+    ok = ok && hmap_count(&m) == 500;
+    hmap_free(&m);
+    printf(ok ? "[OK] hashmap\n" : "[FAIL] hashmap\n");
+    return ok ? 0 : 1;
+}

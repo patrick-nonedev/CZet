@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/str.slt — <utils/str.h>. */
+#include <stdio.h>
+#include <string.h>
+#include <utils/str.h>
+
+int main(void)
+{
+    struct str s;
+    int ok = 1;
+
+    str_init(&s);
+    ok = ok && str_push_cstr(&s, "hello") == 0;
+    ok = ok && str_push_char(&s, ' ') == 0;
+    ok = ok && str_push_fmt(&s, "%s %d", "czet", 42) == 0;
+    ok = ok && strcmp(str_cstr(&s), "hello czet 42") == 0;
+    ok = ok && s.len == strlen("hello czet 42");
+    {
+        int i;
+        for (i = 0; i < 100; i++)
+            if (str_push_fmt(&s, ".%d", i) != 0)
+                ok = 0;
+        ok = ok && s.len > 200; /* grown several times */
+    }
+    str_clear(&s);
+    ok = ok && s.len == 0 && strcmp(str_cstr(&s), "") == 0;
+    ok = ok && str_push_cstr(&s, "again") == 0;
+    str_free(&s);
+    printf(ok ? "[OK] str\n" : "[FAIL] str\n");
+    return ok ? 0 : 1;
+}

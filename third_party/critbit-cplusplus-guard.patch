@@ -1,0 +1,21 @@
+--- a/critbit.h
++++ b/critbit.h
+@@ -1,7 +1,9 @@
+ #ifndef CRITBIT_H_
+ #define CRITBIT_H_
+ 
++#ifdef __cplusplus
+ extern "C" {
++#endif
+ 
+ typedef struct {
+   void *root;
+@@ -14,6 +16,8 @@
+ int critbit0_allprefixed(critbit0_tree *t, const char *prefix,
+                          int (*handle) (const char *, void *), void *arg);
+ 
++#ifdef __cplusplus
+ };
++#endif
+ 
+ #endif  // CRITBIT_H_

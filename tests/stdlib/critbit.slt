@@ -1,0 +1,44 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/critbit.slt — <utils/critbit.h> (agl/djb, pristine). */
+#include <stdio.h>
+#include <string.h>
+#include <utils/critbit.h>
+
+static char g_found[4][32];
+static int g_nfound;
+
+static int collect(const char *s, void *arg)
+{
+    (void)arg;
+    if (g_nfound < 4)
+    {
+        strncpy(g_found[g_nfound], s, 31);
+        g_found[g_nfound][31] = '\0';
+        g_nfound++;
+    }
+    return 1;
+}
+
+int main(void)
+{
+    critbit0_tree t;
+    int ok = 1;
+
+    memset(&t, 0, sizeof(t));
+    /* insert: 2 = nuevo, 1 = ya estaba, 0 = OOM */
+    ok = ok && critbit0_insert(&t, "apple") == 2;
+    ok = ok && critbit0_insert(&t, "app") == 2;
+    ok = ok && critbit0_insert(&t, "banana") == 2;
+    ok = ok && critbit0_insert(&t, "apple") == 1;
+    ok = ok && critbit0_contains(&t, "apple") == 1;
+    ok = ok && critbit0_contains(&t, "cherry") == 0;
+    critbit0_allprefixed(&t, "app", collect, (void *)0);
+    ok = ok && g_nfound == 2;
+    ok = ok && critbit0_delete(&t, "app") == 1;
+    ok = ok && critbit0_contains(&t, "app") == 0;
+    ok = ok && critbit0_contains(&t, "apple") == 1;
+    critbit0_clear(&t);
+    ok = ok && critbit0_contains(&t, "apple") == 0;
+    printf(ok ? "[OK] critbit\n" : "[FAIL] critbit\n");
+    return ok ? 0 : 1;
+}

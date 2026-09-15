@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/generic_memory.slt — memory layout in generic structs.
+ *
+ * A generic struct monomorphizes one concrete layout per instantiation;
+ * the union payload shares storage with the trailing `T data` field.
+ * Generic functions take the struct by pointer.
+ */
+
+#include <stdio.h>
+
+union Payload
+{
+    int status_code;
+    char flags;
+};
+
+struct Event<T>
+{
+    int id;
+    union Payload payload;
+    T data;
+};
+
+void create_event<T>(struct Event<T> *e, int id, int status, T data)
+{
+    e->id = id;
+    e->payload.status_code = status;
+    e->data = data;
+}
+
+int main()
+{
+    struct Event<float> e1;
+    create_event<float>(&e1, 1, 200, 36.0f);
+
+    struct Event<char> e2;
+    create_event<char>(&e2, 2, 404, 'x');
+
+    printf("Event %d [Status %d]: %f\n", e1.id, e1.payload.status_code, e1.data);
+    printf("Event %d [Status %d]: %c\n", e2.id, e2.payload.status_code, e2.data);
+
+    int ok = (e1.id == 1 && e1.payload.status_code == 200 && e1.data == 36.0f)
+             && (e2.id == 2 && e2.payload.status_code == 404 && e2.data == 'x');
+    printf(ok ? "[OK] generic_memory\n" : "[FAIL]\n");
+    return ok ? 0 : 1;
+}

@@ -1,0 +1,45 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/thread_pool.slt — <utils/thread_pool.h>.
+ * NOTE: pthread use needs explicit -pthread. Musl static needs none
+ * (pthread lives in libc.a):
+ *   czet -static tests/stdlib/thread_pool.slt -o thread_pool
+ * glibc does:
+ *   czet -libc=glibc -static -pthread tests/stdlib/thread_pool.slt -o thread_pool
+ */
+#include <stdatomic.h>
+#include <stdio.h>
+#include <utils/thread_pool.h>
+
+static atomic_int g_count;
+
+static void *bump(void *arg)
+{
+    (void)arg;
+    atomic_fetch_add(&g_count, 1);
+    return (void *)0;
+}
+
+int main(void)
+{
+    pool_t *pool;
+    int i, ok;
+
+    atomic_init(&g_count, 0);
+    pool = pool_create(4, 64);
+    if (!pool)
+    {
+        printf("[FAIL] thread_pool create\n");
+        return 1;
+    }
+    for (i = 0; i < 200; i++)
+        if (pool_submit(pool, bump, (void *)0) != 0)
+        {
+            printf("[FAIL] thread_pool submit\n");
+            return 1;
+        }
+    pool_wait(pool);
+    ok = atomic_load(&g_count) == 200;
+    pool_destroy(pool);
+    printf(ok ? "[OK] thread_pool\n" : "[FAIL] thread_pool\n");
+    return ok ? 0 : 1;
+}

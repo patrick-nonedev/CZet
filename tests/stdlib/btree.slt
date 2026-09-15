@@ -1,0 +1,56 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/btree.slt — <utils/btree.h> (tidwall, pristine). */
+#include <stdio.h>
+#include <utils/btree.h>
+
+static int cmp_int(const void *a, const void *b, void *udata)
+{
+    (void)udata;
+    return *(const int *)a - *(const int *)b;
+}
+
+int main(void)
+{
+    struct btree *t = btree_new(sizeof(int), 0, cmp_int, (void *)0);
+    int ok = 1, i, prev = -1, n = 0;
+
+    if (!t)
+    {
+        printf("[FAIL] btree new\n");
+        return 1;
+    }
+    for (i = 99; i >= 0; i--)
+        btree_set(t, &i);
+    ok = ok && btree_count(t) == 100;
+    for (i = 0; i < 100; i++)
+    {
+        const int *p = (const int *)btree_get(t, &i);
+        if (!p || *p != i)
+            ok = 0;
+    }
+    for (i = 0; i < 100; i += 2)
+        btree_delete(t, &i);
+    ok = ok && btree_count(t) == 50;
+    {
+        const int *mn = (const int *)btree_min(t);
+        const int *mx = (const int *)btree_max(t);
+        ok = ok && mn && *mn == 1 && mx && *mx == 99;
+    }
+    {
+        struct btree_iter *it = btree_iter_new(t);
+        if (btree_iter_first(it))
+            do
+            {
+                const int *p = (const int *)btree_iter_item(it);
+                if (!p || *p <= prev)
+                    ok = 0;
+                prev = *p;
+                n++;
+            } while (btree_iter_next(it));
+        btree_iter_free(it);
+        ok = ok && n == 50;
+    }
+    btree_free(t);
+    printf(ok ? "[OK] btree\n" : "[FAIL] btree\n");
+    return ok ? 0 : 1;
+}

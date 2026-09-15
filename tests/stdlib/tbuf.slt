@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/tbuf.slt — <utils/triple_buffering.h> (SPSC, no threads). */
+#include <stdio.h>
+#include <utils/triple_buffering.h>
+
+int main(void)
+{
+    struct tbuf<int> b;
+    int zero = 0, one = 1, two = 2, out = -1;
+    int ok = 1;
+
+    tbuf_init<int>(&b, &zero);
+    tbuf_read<int>(&b, &out);
+    ok = ok && out == 0;
+    /* lagging reader: two back-to-back writes, newest must win */
+    tbuf_write<int>(&b, &one);
+    tbuf_write<int>(&b, &two);
+    tbuf_read<int>(&b, &out);
+    ok = ok && out == 2;
+    tbuf_read<int>(&b, &out);
+    ok = ok && out == 2; /* sin writes nuevos, repite */
+    printf(ok ? "[OK] tbuf\n" : "[FAIL] tbuf\n");
+    return ok ? 0 : 1;
+}

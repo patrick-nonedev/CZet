@@ -1,0 +1,72 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* tests/stdlib/server.slt — <utils/server.h>: TCP 127.0.0.1 with fork. */
+#define _POSIX_C_SOURCE 200809L
+#include <stdio.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
+#include <utils/server.h>
+
+static void msleep(long ms)
+{
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;
+    ts.tv_nsec = (ms % 1000) * 1000000L;
+    nanosleep(&ts, (struct timespec *)0);
+}
+
+int main(void)
+{
+    int srv = tcp_listen("127.0.0.1", "0", 8);
+    pid_t pid;
+    if (srv < 0)
+    {
+        printf("[FAIL] server listen\n");
+        return 1;
+    }
+    pid = fork();
+    if (pid < 0)
+        return 1;
+    if (pid == 0)
+    {
+        char portstr[16];
+        int fd = -1, i;
+        int port = tcp_port(srv);
+        if (port <= 0)
+            return 1;
+        snprintf(portstr, sizeof(portstr), "%d", port);
+        for (i = 0; i < 100
+             && (fd = tcp_connect("127.0.0.1", portstr)) < 0;
+             i++)
+            msleep(10);
+        if (fd < 0)
+            return 1;
+        if (tcp_send_all(fd, "ping", 4) != 0)
+            return 1;
+        {
+            char back[4];
+            if (tcp_recv_all(fd, back, 4) != 0)
+                return 1;
+            tcp_close(fd);
+            return memcmp(back, "pong", 4) == 0 ? 0 : 1;
+        }
+    }
+    {
+        int cli = tcp_accept(srv), st = 0, ok;
+        char buf[4];
+        if (cli < 0)
+            return 1;
+        if (tcp_recv_all(cli, buf, 4) != 0)
+            return 1;
+        if (tcp_send_all(cli, "pong", 4) != 0)
+            return 1;
+        tcp_close(cli);
+        tcp_close(srv);
+        waitpid(pid, &st, 0);
+        ok = (WIFEXITED(st) && WEXITSTATUS(st) == 0
+              && memcmp(buf, "ping", 4) == 0);
+        printf(ok ? "[OK] server\n" : "[FAIL] server\n");
+        return ok ? 0 : 1;
+    }
+}

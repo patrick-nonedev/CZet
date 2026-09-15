@@ -1,0 +1,79 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* variant.co: type-generic variant library for CZet (header, no main).
+ *
+ * A type-erased container that holds a value of exactly one of a small set
+ * of alternative types at a time, selecting it dynamically.  Built on
+ * CZet's type generics: `struct variant_t<T, U, V>` is a tagged union
+ * parameterized by the alternative types.  The storage is monomorphized per
+ * instantiation, and emplace uses _Generic dispatch (resolved at
+ * instantiation time) to pick the right union member and tag.
+ */
+
+#ifndef CO_VARIANT_H
+#define CO_VARIANT_H
+
+#include <assert.h>
+
+/* "index" tag; -1 means the variant is empty.  The stored value's live
+   alternative is tracked by the rank of its type among <T, U, V>.  */
+#define VARIANT_NONE (-1)
+
+/* A variant holding one of T, U or V.  The tagged union and the accessor
+   below are monomorphized once per distinct (T, U, V) triple.  */
+struct variant_t<T, U, V>
+{
+    union { T a; U b; V c; } u;
+    int index;
+};
+
+/* Rank (0, 1 or 2) of type X among the variant's <T, U, V> alternatives, or
+   VARIANT_NONE if X is not an alternative.  Monomorphized per instantiation;
+   the _Generic select is deferred until the placeholder X is concrete.  */
+int variant_rank<T, U, V, X>(struct variant_t<T, U, V> *v_ignored, X x)
+{
+    return _Generic((x),
+        T : 0,
+        U : 1,
+        V : 2,
+        default : VARIANT_NONE);
+}
+
+/* Store X into V, setting the tag to the rank of X's type. */
+void variant_store<T, U, V, X>(struct variant_t<T, U, V> *v, X x)
+{
+    v->index = _Generic((x),
+        T : 0,
+        U : 1,
+        V : 2,
+        default : VARIANT_NONE);
+    _Generic((x),
+        T : (v->u.a = x),
+        U : (v->u.b = x),
+        V : (v->u.c = x),
+        default : (void)0);
+}
+
+/* True if V currently holds a value of type X. */
+int variant_holds<T, U, V, X>(struct variant_t<T, U, V> *v, X unused)
+{
+    (void)unused;
+    return _Generic((unused),
+        T : v->index == 0,
+        U : v->index == 1,
+        V : v->index == 2,
+        default : 0);
+}
+
+/* Read V's value as type X.  It is the caller's responsibility that V's live
+   type matches X (we cannot dispatch on a runtime tag, only a type). */
+X variant_get<T, U, V, X>(struct variant_t<T, U, V> *v, X dummy)
+{
+    /* Select on X via the dummy object's type (known at the call site);
+       assert the runtime tag.  */
+    return _Generic((dummy),
+        T : (assert(v->index == 0), v->u.a),
+        U : (assert(v->index == 1), v->u.b),
+        V : (assert(v->index == 2), v->u.c));
+}
+
+#endif /* CO_VARIANT_H */

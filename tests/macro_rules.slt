@@ -1,0 +1,240 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stdio.h>
+
+/* ======================================================================
+   CZet _Macro — full tour of every feature
+   ======================================================================
+   A _Macro defines C templates expanded at the call site.  Shape:
+
+       _Macro NAME<$param1: frag, $param2: frag> {
+         (call shape A)  { expansion A }
+         (call shape B)  { expansion B }      <- several "arms"
+       };
+
+   Calls look like NAME<arg, arg, ...>.  Available fragments:
+
+       $n: ident    one name (struct, variable, function...)
+       $e: expr     one expression
+       $t: tokens   any unchecked token run
+       $b: block    one balanced { ... } block
+       $n: number   one numeric literal
+       $s: string   one "..." string
+       $l: literal  any literal (number, char, string, ...)
+
+   Repetition (pattern and expansion):  $( $x: frag )SEP?OP
+
+       *  zero or more   +  one or more   ?  zero or one (optional)
+       SEP separates iterations (e.g. `,` or `;`).
+       Groups NEST: $( $( $x ),+ );+
+
+   Hygiene: names declared by the macro body are renamed to
+   name__czet<N> per expansion (body statics/locals never collide
+   across invocations).  Caller-captured tokens are never renamed.
+
+   Build:  czet -static macro_rules.slt -o macro_rules && ./macro_rules
+   ====================================================================== */
+
+/* ================== 1. ident + block: emit a struct ================= */
+
+_Macro STRUCT<$name: ident, $b: block> {
+  (STRUCT $name , $b) { struct $name $b; }
+};
+
+/* ================== 2. block: emit a function ===================== */
+/* The captured block uses `a[]` and `n` by contract; hygiene leaves
+   contract names untouched.  */
+
+_Macro ALL_IS<$fname: ident, $b: block> {
+  (ALL_IS $fname , $b) { int $fname(double a[], int n) $b }
+};
+
+/* ================== 3. tokens: raw token run ======================== */
+
+_Macro GET_FIELD<$v: tokens, $type: tokens> {
+  (GET_FIELD $v , $type) { (*(($type *)($v))) }
+};
+
+_Macro SET_FIELD<$a: tokens> {
+  (SET_FIELD $a) { $a; }
+};
+
+/* ================== 4. expr: assertions ============================= */
+
+_Macro ASSERT_TRUE<$a: expr> {
+  (ASSERT_TRUE $a) {
+    if ($a) { printf("  PASS\n"); }
+    else    { printf("  FAIL\n"); }
+  }
+};
+
+_Macro ASSERT_EQ<$a: expr, $b: expr> {
+  (ASSERT_EQ $a , $b) {
+    if (($a) == ($b)) { printf("  PASS\n"); }
+    else              { printf("  FAIL\n"); }
+  }
+};
+
+/* ================== 5. literals: number, string, literal ============ */
+
+_Macro PRINT_NUM<$n: number> {
+  (PRINT_NUM $n) { printf("  number %d\n", $n); }
+};
+
+_Macro PRINT_STR<$s: string> {
+  (PRINT_STR $s) { printf("  string \"%s\"\n", $s); }
+};
+
+_Macro PRINT_LIT<$l: literal> {
+  (PRINT_LIT $l) { printf("  literal %d\n", (int)($l)); }
+};
+
+/* ============ 6. `*` repetition: variadic args ====================== */
+
+_Macro VEC_LEN<$($e: expr),*> {
+  (VEC_LEN $($e),*) { sizeof((int[]){0, $($e),*}) / sizeof(int) - 1 }
+};
+
+_Macro PRINT_VALS<$($v: expr),*> {
+  (PRINT_VALS $($v),*) {
+    $(printf("  [%d]\n", $v);)*
+  }
+};
+
+/* ============ 7. `+` repetition: enum from idents =================== */
+
+_Macro TOKENS_OF<$($t: ident)+> {
+  (TOKENS_OF $($t)+) { enum { $($t),* }; }
+};
+
+/* ============ 8. `?` repetition: optional =========================== */
+
+_Macro OPT_PRINT<$($fmt: expr)?> {
+  (OPT_PRINT $($fmt)?) { $(printf($fmt, 42);)? }
+};
+
+/* ============ 9. nested repetition: GRID ============================ */
+/* $( $( $x ),+ );+  ->  rows split by `;`, columns by `,`.  The
+   expansion replicates both nesting levels.  */
+
+_Macro GRID<$($x: expr),+> {
+  (GRID $($($x),+);+) {
+    $( printf("  row: "); $( printf("v%d ", $x); )+ printf("\n"); )+
+  }
+};
+
+/* ============ 10. repetition over literal fragments ================= */
+
+_Macro WANTNUMS<$($n: number),*> {
+  (WANTNUMS $($n),*) { $(printf("  [%d] ", $n);)* }
+};
+
+/* ============ 11. hygiene: same block, separate statics ============ */
+/* Without hygiene both calls would declare `static int steps` twice in
+   the same scope.  Each invocation gets its own steps__czet<N>.  */
+
+_Macro STEP<$n: number> {
+  (STEP $n) { static int steps; steps += $n; printf("  steps=%d\n", steps); }
+};
+
+/* ============ 12. provenance: captures looking like decls =========== */
+/* $d comes from the caller: NEVER renamed, even if it looks like one. */
+
+_Macro DECL<$d: tokens> {
+  (DECL $d) { $d; }
+};
+
+/* ============ 13. several arms per call shape ======================= */
+
+_Macro DIAG<$a: expr, $b: expr> {
+  (DIAG $a)               { printf("  DIAG<1>: %d\n", $a); }
+  (DIAG $a , $b)          { printf("  DIAG<2>: %d %d\n", $a, $b); }
+};
+
+/* ======================================================================
+   Demo run
+   ====================================================================== */
+
+/* 1. Emit struct tags */
+STRUCT<circle, { double x, y, radius; int color; }>
+STRUCT<rect, { double x, y, width, height; int filled; }>
+
+/* 2. Emit checker functions */
+ALL_IS<all_circle, {
+  for (int i = 0; i < n; i++)
+    if (a[i] < 1.0) return 0;
+  return 1;
+}>
+ALL_IS<all_rect, {
+  for (int i = 0; i < n; i++)
+    if (a[i] < 0.0) return 0;
+  return 1;
+}>
+
+/* 3. Typed field access and assignment */
+double circle_x(struct circle *c)   { return GET_FIELD<c, struct circle>.x;   }
+double circle_r(struct circle *c)   { return GET_FIELD<c, struct circle>.radius; }
+double rect_width(struct rect *r)   { return GET_FIELD<r, struct rect>.width; }
+void   rect_set_w(struct rect *r, double v) { SET_FIELD<r->width = v> }
+
+int main()
+{
+  printf("== 3. tokens: field access + assignment\n");
+  struct circle c1 = { 1.0, 2.0, 5.0, 42 };
+  struct rect    r1 = { 0.0, 0.0, 3.0, 4.0 };
+  printf("  circle radius = %g\n", circle_r(&c1));
+  printf("  rect width    = %g\n", rect_width(&r1));
+  rect_set_w(&r1, 12.5);
+  printf("  rect width after = %g\n", rect_width(&r1));
+
+  printf("== 4. expr: assertions\n");
+  printf("  1+1 == 2 :");  ASSERT_EQ<1 + 1, 2>
+  printf("  5 > 3   :");  ASSERT_TRUE<(5 > 3)>
+
+  printf("== 5. literals\n");
+  PRINT_NUM<42>
+  PRINT_NUM<0x1A>
+  PRINT_STR<"hello, czet">
+  PRINT_LIT<42>
+  PRINT_LIT<'Z'>
+
+  printf("== 6. `*` repetition\n");
+  int a = VEC_LEN<1, 2, 3>;
+  int b = VEC_LEN<>;
+  printf("  VEC_LEN<1,2,3> = %d (expected 3)\n", a);
+  printf("  VEC_LEN<>      = %d (expected 0)\n", b);
+  printf("  PRINT_VALS<10,20,30>:\n");
+  PRINT_VALS<10, 20, 30>
+  printf("  PRINT_VALS<>:\n");
+  PRINT_VALS<>
+
+  printf("== 7. `+` repetition\n");
+  TOKENS_OF<alpha beta gamma>
+  printf("  generated enum: %d %d %d\n", alpha, beta, gamma);
+
+  printf("== 8. `?` repetition\n");
+  OPT_PRINT<"%d\n">
+  OPT_PRINT<>
+
+  printf("== 9. nested repetition\n");
+  GRID<1,2;3,4>
+  GRID<7;8>
+
+  printf("== 10. repeated fragments\n");
+  WANTNUMS<1,2,3>
+  WANTNUMS<>
+
+  printf("== 11. hygiene (two expansions, one block)\n");
+  STEP<10>
+  STEP<20>
+
+  printf("== 12. provenance\n");
+  DECL<int foos = 3>
+  printf("  foos=%d\n", foos);
+
+  printf("== 13. arms\n");
+  DIAG<1>
+  DIAG<2, 3>
+
+  printf("\nFull demo done.\n");
+  return 0;
+}

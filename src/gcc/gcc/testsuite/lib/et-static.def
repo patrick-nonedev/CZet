@@ -1,0 +1,73 @@
+# Definitions of static effective targets determined from auto-host.h.
+
+#  Copyright (C) 2026 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# Each record consist of 3 lines:
+#
+# <effective target>
+# <MACRO>
+# <comment> to be emitted as "Return 0 if <comment>, 1 otherwise."
+
+# Keep this sorted alphabetically by effective-target name.  */
+
+code_6_gottpoff_reloc
+HAVE_AS_R_X86_64_CODE_6_GOTTPOFF
+assembler and linker support R_X86_64_CODE_6_GOTTPOFF
+
+fentry
+ENABLE_X86_64_MFENTRY
+-mfentry is enabled by default
+
+got32x_reloc
+HAVE_AS_IX86_GOT32X
+your assembler and linker support @GOT
+
+ld_at_file
+HAVE_LD_AT_FILE
+your linker supports GNU style response files
+
+pie_copyreloc
+HAVE_LD_PIE_COPYRELOC
+your linker supports -pie option with copy reloc
+
+powerpc_as_p10_htm
+HAVE_AS_POWER10_HTM
+your assembler supports htm insns on power10
+
+shf_gnu_retain
+HAVE_GAS_SHF_GNU_RETAIN
+this target supports SHF_GNU_RETAIN
+
+shf_link_order
+HAVE_GAS_SECTION_LINK_ORDER
+this target supports SHF_LINK_ORDER
+
+sht_init_array
+HAVE_INITFINI_ARRAY_SUPPORT
+this target supports SHT_INIT_ARRAY
+
+solaris_as
+HAVE_SOLARIS_AS
+using the Solaris assembler
+
+solaris_ld
+HAVE_SOLARIS_LD
+using the Solaris linker
+
+tls_get_addr_via_got
+HAVE_AS_IX86_TLS_GET_ADDR_GOT
+your assembler and linker support calling ___tls_get_addr via GOT
