@@ -33,7 +33,7 @@ CZet is a language inspired by C — in fact, all ISO C code compiles as CZet. C
 ---
 The syntax is the same — obviously it is compatible with ISO C — and it provides all the tools you need to build *everything* without paying for C++ abstraction cost.
 
-*NOTE*: The suggested extensions are `.slt` for implementations and `.hlt` for headers
+*NOTE*: The suggested extensions are `.czet` for implementations and `.hzet` for headers
 
 ---
 
@@ -47,24 +47,24 @@ Each module is covered by a test in [`tests/stdlib/`](tests/stdlib/):
 
 | Module | Header | Test | What the test exercises |
 |---|---|---|---|
-| Arena allocator | `<utils/arena.h>` | [`arena.slt`](tests/stdlib/arena.slt) | Linear bump allocator: `arena_init/alloc/calloc`, `arena_used/capacity`, alignment handling (rejects non-power-of-two), `arena_reset/free` |
-| Growing string | `<utils/str.h>` | [`str.slt`](tests/stdlib/str.slt) | String builder: `str_init/push_cstr/push_char/push_fmt`, auto-growth, `str_cstr/clear/free` |
-| Borrowed slice | `<utils/slice.h>` | [`slice.slt`](tests/stdlib/slice.slt) | Generic view `struct slice<T>`: `slice_make/len/at/sub`, bounds checking (`NULL` out of range, clamped sub-slices), write-through semantics |
-| Hash map | `<utils/hashmap.h>` | [`hashmap.slt`](tests/stdlib/hashmap.slt) | Open-addressed `string → void*` map (FNV-1a, linear probing): 500 keys, rehash, `hmap_put/get/del/count/free`, tombstone reuse |
-| Ordered btree | `<utils/btree.h>` | [`btree.slt`](tests/stdlib/btree.slt) | Vendored tidwall btree: `btree_new/set/get/delete/min/max/count`, ordered iteration (`btree_iter_first/next/item`), `btree_free` |
-| Crit-bit trie | `<utils/critbit.h>` | [`critbit.slt`](tests/stdlib/critbit.slt) | Vendored agl/djb critbit: `critbit0_insert/contains/delete/clear/allprefixed`, duplicate-insert (`2` new / `1` existing) and prefix search |
-| Binary persistence | `<utils/save_memory.h>` | [`save_memory.slt`](tests/stdlib/save_memory.slt) | Endian-aware packed save/load via `_Reflect` + generics: `sm_save<T>/sm_load<T>` and `sm_save_r/sm_load_r`, structs/unions/arrays/typedefs, pointers rejected |
-| Double buffering | `<utils/double_buffering.h>` | [`dbuf.slt`](tests/stdlib/dbuf.slt) | Lock-free SPSC double buffer with generics (`struct dbuf<T>`): `dbuf_init/write/read`, latest-frame-wins |
-| Triple buffering | `<utils/triple_buffering.h>` | [`tbuf.slt`](tests/stdlib/tbuf.slt) | Lock-free SPSC triple buffer (`struct tbuf<T>`): `tbuf_init/write/read`, spare slot so a lagging reader keeps the newest datum |
-| Thread pool | `<utils/thread_pool.h>` | [`thread_pool.slt`](tests/stdlib/thread_pool.slt) | pthread pool: `pool_create(4, 64)`, 200× `pool_submit`, `pool_wait/destroy` (needs `-pthread` on glibc, none on static musl) |
-| Coroutines | `<utils/aco.h>` | [`aco.slt`](tests/stdlib/aco.slt) | Cooperative coroutines over libaco: `co_sched_init/spawn/run/free`, `co_yield` round-robin interleaving |
-| TCP networking | `<utils/server.h>` | [`server.slt`](tests/stdlib/server.slt) | Minimal TCP (IPv4/IPv6): `tcp_listen/connect/accept`, `tcp_send_all/recv_all`, `tcp_port` (ephemeral port `"0"`), `tcp_close` |
-| UNIX IPC | `<utils/ipc.h>` | [`ipc.slt`](tests/stdlib/ipc.slt) | AF_UNIX `SOCK_STREAM` IPC: `ipc_server_open/close`, `ipc_client_open/close`, `ipc_send_all/recv_all` |
+| Arena allocator | `<utils/arena.h>` | [`arena.czet`](tests/stdlib/arena.slt) | Linear bump allocator: `arena_init/alloc/calloc`, `arena_used/capacity`, alignment handling (rejects non-power-of-two), `arena_reset/free` |
+| Growing string | `<utils/str.h>` | [`str.czet`](tests/stdlib/str.slt) | String builder: `str_init/push_cstr/push_char/push_fmt`, auto-growth, `str_cstr/clear/free` |
+| Borrowed slice | `<utils/slice.h>` | [`slice.czet`](tests/stdlib/slice.slt) | Generic view `struct slice<T>`: `slice_make/len/at/sub`, bounds checking (`NULL` out of range, clamped sub-slices), write-through semantics |
+| Hash map | `<utils/hashmap.h>` | [`hashmap.czet`](tests/stdlib/hashmap.slt) | Open-addressed `string → void*` map (FNV-1a, linear probing): 500 keys, rehash, `hmap_put/get/del/count/free`, tombstone reuse |
+| Ordered btree | `<utils/btree.h>` | [`btree.czet`](tests/stdlib/btree.slt) | Vendored tidwall btree: `btree_new/set/get/delete/min/max/count`, ordered iteration (`btree_iter_first/next/item`), `btree_free` |
+| Crit-bit trie | `<utils/critbit.h>` | [`critbit.czet`](tests/stdlib/critbit.slt) | Vendored agl/djb critbit: `critbit0_insert/contains/delete/clear/allprefixed`, duplicate-insert (`2` new / `1` existing) and prefix search |
+| Binary persistence | `<utils/save_memory.h>` | [`save_memory.czet`](tests/stdlib/save_memory.slt) | Endian-aware packed save/load via `_Reflect` + generics: `sm_save<T>/sm_load<T>` and `sm_save_r/sm_load_r`, structs/unions/arrays/typedefs, pointers rejected |
+| Double buffering | `<utils/double_buffering.h>` | [`dbuf.czet`](tests/stdlib/dbuf.slt) | Lock-free SPSC double buffer with generics (`struct dbuf<T>`): `dbuf_init/write/read`, latest-frame-wins |
+| Triple buffering | `<utils/triple_buffering.h>` | [`tbuf.czet`](tests/stdlib/tbuf.slt) | Lock-free SPSC triple buffer (`struct tbuf<T>`): `tbuf_init/write/read`, spare slot so a lagging reader keeps the newest datum |
+| Thread pool | `<utils/thread_pool.h>` | [`thread_pool.czet`](tests/stdlib/thread_pool.slt) | pthread pool: `pool_create(4, 64)`, 200× `pool_submit`, `pool_wait/destroy` (needs `-pthread` on glibc, none on static musl) |
+| Coroutines | `<utils/aco.h>` | [`aco.czet`](tests/stdlib/aco.slt) | Cooperative coroutines over libaco: `co_sched_init/spawn/run/free`, `co_yield` round-robin interleaving |
+| TCP networking | `<utils/server.h>` | [`server.czet`](tests/stdlib/server.slt) | Minimal TCP (IPv4/IPv6): `tcp_listen/connect/accept`, `tcp_send_all/recv_all`, `tcp_port` (ephemeral port `"0"`), `tcp_close` |
+| UNIX IPC | `<utils/ipc.h>` | [`ipc.czet`](tests/stdlib/ipc.slt) | AF_UNIX `SOCK_STREAM` IPC: `ipc_server_open/close`, `ipc_client_open/close`, `ipc_send_all/recv_all` |
 
 ```text
-czet -static tests/stdlib/str.slt -o str && ./str
-czet -static tests/stdlib/slice.slt -o slice && ./slice
-czet -static -pthread tests/stdlib/thread_pool.slt -o pool && ./pool
+czet -static tests/stdlib/str.czet -o str && ./str
+czet -static tests/stdlib/slice.czet -o slice && ./slice
+czet -static -pthread tests/stdlib/thread_pool.czet -o pool && ./pool
 ```
 
 ---
