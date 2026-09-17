@@ -39,6 +39,22 @@
 #define CHUNK         65536
 #define HDR_LEN       512
 
+/* Per-arch default dynamic loaders. Resolved at compile time so each
+ * native binary (x86_64 / i686 / aarch64) embeds the right paths. */
+#if defined(__aarch64__)
+#define CZET_MUSL_LOADER  "/lib/ld-musl-aarch64.so.1"
+#define CZET_GLIBC_LOADER "/lib/ld-linux-aarch64.so.1"
+#define CZET_LD_LINUX     "ld-linux-aarch64.so.1"
+#elif defined(__i386__) || defined(__i686__)
+#define CZET_MUSL_LOADER  "/lib/ld-musl-x86.so.1"
+#define CZET_GLIBC_LOADER "/lib/ld-linux.so.2"
+#define CZET_LD_LINUX     "ld-linux.so.2"
+#else /* x86_64 and fallback */
+#define CZET_MUSL_LOADER  "/lib/ld-musl-x86_64.so.1"
+#define CZET_GLIBC_LOADER "/lib64/ld-linux-x86-64.so.2"
+#define CZET_LD_LINUX     "ld-linux-x86-64.so.2"
+#endif
+
 /* ============================ helpers ============================== */
 
 static uint64_t le64u(const uint8_t *p)
@@ -563,7 +579,7 @@ int main(int argc, char **argv)
         char *script = cat(syslib, "/libc.so");
         char *so6    = cat(syslib, "/libc.so.6");
         char *ns     = cat(syslib, "/libc_nonshared.a");
-        char *ld     = cat(syslib, "/ld-linux-x86-64.so.2");
+        char *ld     = cat(syslib, "/" CZET_LD_LINUX);
         if (script && so6 && ns && ld) {
             size_t len = strlen(so6) + strlen(ns) + strlen(ld) + 160;
             char *body = malloc(len);
@@ -637,9 +653,9 @@ int main(int argc, char **argv)
         args[i++] = strdup("-static");
     } else {
         char *loader = strcmp(libc, "musl") == 0
-                           ? "/lib/ld-musl-x86_64.so.1"
+                           ? CZET_MUSL_LOADER
                            : (strcmp(libc, "glibc") == 0
-                                  ? "/lib64/ld-linux-x86-64.so.2"
+                                  ? CZET_GLIBC_LOADER
                                   : NULL);
         args[i++] = strdup("-static-libgcc");
         if (loader)

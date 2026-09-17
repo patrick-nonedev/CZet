@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# CZet multi-arch release: native build per arch (blob is arch-specific).
+# x86_64 + aarch64 run on native runners, i686 runs in a 32-bit container.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runs-on: ubuntu-24.04
+            asset: czet-x86_64
+          - arch: aarch64
+            runs-on: ubuntu-24.04-arm
+            asset: czet-aarch64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+
+      - name: Build (native ${{ matrix.arch }})
+        run: |
+          nix-shell shell.nix --run 'make -j$(nproc) all'
+          ./czet -static -x c tests/reflect.czet -x none -o /tmp/reflect && /tmp/reflect
+          ./czet --extract-only
+          mv czet "${{ matrix.asset }}"
+          sha256sum "${{ matrix.asset }}" | tee "${{ matrix.asset }}.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            ${{ matrix.asset }}
+            ${{ matrix.asset }}.sha256
+
+  # Manual i386: run on a 32-bit host (VM or i386/ubuntu container with Nix),
+  # then upload with: gh release upload <tag> czet-i386 czet-i386.sha256
+  #   nix-shell shell.nix --run 'make -j$(nproc) ARCH=i686 all'
+  #   ./czet -static -x c tests/reflect.czet -x none -o /tmp/reflect && /tmp/reflect
+  #   mv czet czet-i386 && sha256sum czet-i386 | tee czet-i386.sha256
+
+  publish:
+    needs: [build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          generate_release_notes: true

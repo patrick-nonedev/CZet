@@ -27,22 +27,57 @@ CONFIGURE_ARGS = \
 	--disable-shared
 
 # No /usr/include on NixOS; point at the real glibc headers.
-GLIBC_INC = $(shell nix-shell $(SHELL_NIX) --run 'printf "#include <stdlib.h>\n" | gcc -E - 2>/dev/null | grep -m1 stdlib.h' | sed -n 's/.*"\(.*\)\/stdlib.h".*/\1/p')
+# NOTE: grep glibc explicitly: shell.nix also provides musl, whose stdlib.h
+# would otherwise win the -m1 race.
+GLIBC_INC = $(shell nix-shell $(SHELL_NIX) --run 'printf "#include <stdlib.h>\n" | gcc -E - 2>/dev/null | grep glibc | grep -m1 stdlib.h' | sed -n 's/.*"\(.*\)\/stdlib.h".*/\1/p')
 
 # Libc sysroot paths for the embedded blob (probed on NixOS).
 # Derived from the same glibc used by configure (consistent version).
 # Note: filter/filter-out with an inner % is broken in make 4.4.1, hence
 # firstword/wildcard selections with a literal suffix.
+#
+# Multi-arch: native build per arch. ARCH defaults to host (uname -m),
+# override with `make ARCH=i686` / `ARCH=aarch64`. i386 is an alias of i686.
+ARCH_RAW ?= $(shell uname -m)
+ARCH ?= $(ARCH_RAW)
+ifeq ($(ARCH),i386)
+ARCH_NORM := i686
+else
+ARCH_NORM := $(ARCH)
+endif
+ifeq ($(ARCH_NORM),x86_64)
+MUSL_TRIPLE := x86_64-unknown-linux-musl
+GCC_TRIPLE  := x86_64-pc-linux-gnu
+FILE_MATCH  := x86-64
+LD_LINUX    := ld-linux-x86-64.so.2
+else ifeq ($(ARCH_NORM),i686)
+MUSL_TRIPLE := i686-unknown-linux-musl
+GCC_TRIPLE  := i686-pc-linux-gnu
+FILE_MATCH  := Intel 80386
+LD_LINUX    := ld-linux.so.2
+else ifeq ($(ARCH_NORM),aarch64)
+MUSL_TRIPLE := aarch64-unknown-linux-musl
+GCC_TRIPLE  := aarch64-unknown-linux-gnu
+FILE_MATCH  := aarch64
+LD_LINUX    := ld-linux-aarch64.so.1
+else
+$(error Unsupported ARCH=$(ARCH) (expected x86_64, i686/i386 or aarch64))
+endif
+# libgcc dir: prefer exact triple, fall back to any toolchain triple
+# (exclude blob-root, which is output not input).
+LIBGCC_DIR ?= $(firstword $(wildcard $(BUILD_DIR)/$(GCC_TRIPLE)/libgcc) $(wildcard $(BUILD_DIR)/*-pc-linux-gnu/libgcc $(BUILD_DIR)/*-unknown-linux-gnu/libgcc))
 GLIBC_VER     := $(shell printf '%s' '$(GLIBC_INC)' | sed -E 's#.*-glibc-([0-9][0-9.]*-[0-9]+).*#\1#')
-# The -dev (include) pins the version and is x86-64.  Among the lib/static
-# dirs of that version, pick the ones that ARE x86-64 (both 32 and 64-bit
-# variants may be present).
+# The -dev (include) pins the version. Among the lib/static dirs of that
+# version, pick the ones matching FILE_MATCH (both 32 and 64-bit variants
+# may be present on multilib hosts).
 GLIBC_CANDS   := $(wildcard /nix/store/*-glibc-$(GLIBC_VER)/lib)
-GLIBC_64      := $(foreach L,$(GLIBC_CANDS),$(if $(findstring x86-64,$(shell file -b $(L)/crt1.o 2>/dev/null)),$(L)))
+GLIBC_64      := $(foreach L,$(GLIBC_CANDS),$(if $(findstring $(FILE_MATCH),$(shell file -b $(L)/crt1.o 2>/dev/null)),$(L)))
 GLIBC_LIB     ?= $(firstword $(GLIBC_64))
 GLIBC_STATIC  ?= $(firstword $(wildcard /nix/store/*-glibc-$(GLIBC_VER)-static/lib))
-MUSL_STATIC   := $(patsubst %/,%,$(firstword $(filter-out %-dev/ %-bin/,\
-	$(wildcard /nix/store/*-musl-static-x86_64-unknown-linux-musl-*/))))
+# musl static: prefer the -musl-static-<triple>- triple dir, fall back to any
+# realized musl output containing lib/libc.a (plain *-musl-<ver>/ after GC).
+MUSL_STATIC_CANDS := $(filter-out %-dev/ %-bin/,$(wildcard /nix/store/*-musl-static-$(MUSL_TRIPLE)-*/ /nix/store/*-musl-*/))
+MUSL_STATIC   := $(patsubst %/,%,$(firstword $(foreach D,$(MUSL_STATIC_CANDS),$(if $(wildcard $(D)/lib/libc.a),$(D)))))
 MUSL_LIB      ?= $(MUSL_STATIC)/lib
 MUSL_VER      := $(lastword $(subst -, ,$(notdir $(MUSL_STATIC))))
 MUSL_INC      ?= $(firstword $(wildcard /nix/store/*-musl-$(MUSL_VER)-dev/include))
@@ -53,6 +88,12 @@ MUSL_DYN      := $(patsubst %/,%,$(firstword $(filter-out %musl-static% %-dev/ %
 .PHONY: all build configure shell logs clean czet blob embed
 
 print-vars:
+	@echo "ARCH         = $(ARCH) (norm: $(ARCH_NORM))"
+	@echo "MUSL_TRIPLE  = $(MUSL_TRIPLE)"
+	@echo "GCC_TRIPLE   = $(GCC_TRIPLE)"
+	@echo "FILE_MATCH   = $(FILE_MATCH)"
+	@echo "LD_LINUX     = $(LD_LINUX)"
+	@echo "LIBGCC_DIR   = $(LIBGCC_DIR)"
 	@echo "GLIBC_VER    = $(GLIBC_VER)"
 	@echo "GLIBC_LIB    = $(GLIBC_LIB)"
 	@echo "GLIBC_STATIC = $(GLIBC_STATIC)"
@@ -173,7 +214,8 @@ $(BLOB_TAR): $(BUILD_DIR)/gcc/cc1 $(TP_MUSL_A) $(TP_GLIBC_A) \
 		$(BUILD_DIR)/gcc/crtbeginT.o $(BUILD_DIR)/gcc/crtend.o \
 		$(BUILD_DIR)/gcc/crtendS.o $(BLOB_ROOT)/gcc/
 	@cp -r $(BUILD_DIR)/gcc/include $(BLOB_ROOT)/gcc/include
-	@cp $(BUILD_DIR)/x86_64-pc-linux-gnu/libgcc/libgcc.a \
+	@test -n "$(LIBGCC_DIR)" || { echo "missing libgcc dir for $(GCC_TRIPLE) (run 'make build')"; exit 1; }
+	@cp $(LIBGCC_DIR)/libgcc.a \
 		$(BLOB_ROOT)/libgcc/
 	@cp -r $(MUSL_INC)/. $(BLOB_ROOT)/sysroot/musl/include/
 	@mkdir -p $(BLOB_ROOT)/sysroot/musl/include/utils \
@@ -200,7 +242,7 @@ $(BLOB_TAR): $(BUILD_DIR)/gcc/cc1 $(TP_MUSL_A) $(TP_GLIBC_A) \
 		$(GLIBC_STATIC)/libmvec.a $(GLIBC_STATIC)/libg.a \
 		$(BLOB_ROOT)/sysroot/glibc/lib/ 2>/dev/null || true
 	@cp $(GLIBC_LIB)/libc.so.6 $(GLIBC_LIB)/libm.so.6 \
-		$(GLIBC_LIB)/ld-linux-x86-64.so.2 \
+		$(GLIBC_LIB)/$(LD_LINUX) \
 		$(GLIBC_LIB)/libc_nonshared.a $(BLOB_ROOT)/sysroot/glibc/lib/ \
 		2>/dev/null || true
 	@echo ">> generando tar ustar"
