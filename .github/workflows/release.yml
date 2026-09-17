@@ -31,6 +31,11 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
+      - name: Prefetch static libcs
+        run: |
+          nix-build --no-out-link "<nixpkgs>" -A glibc.static
+          nix-build --no-out-link "<nixpkgs>" -A musl
+
       - name: Build (native ${{ matrix.arch }})
         run: |
           nix-shell shell.nix --run 'make -j$(nproc) all'

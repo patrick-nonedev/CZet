@@ -85,7 +85,13 @@ MUSL_INC      ?= $(firstword $(wildcard /nix/store/*-musl-$(MUSL_VER)-dev/includ
 MUSL_DYN      := $(patsubst %/,%,$(firstword $(filter-out %musl-static% %-dev/ %-bin/,\
 	$(wildcard /nix/store/*-musl-$(MUSL_VER)/))))
 
-.PHONY: all build configure shell logs clean czet blob embed
+.PHONY: all build configure shell logs clean czet blob embed prefetch
+
+# Realize the static libcs into /nix/store (fresh machines/CI only have the
+# dev/dynamic outputs; the blob needs libc.a + musl headers).
+prefetch:
+	nix-build --no-out-link "<nixpkgs>" -A glibc.static
+	nix-build --no-out-link "<nixpkgs>" -A musl
 
 print-vars:
 	@echo "ARCH         = $(ARCH) (norm: $(ARCH_NORM))"
