@@ -18,7 +18,7 @@ expressions. If **no** arm matches, the tokens are handed back to the parser
 as-is and you get an ordinary syntax error.
 
 Definitions are **file-scope only**, local to the translation unit, and cannot
-be redefined. The full demo lives in `tests/macro_rules.slt`.
+be redefined. The full demo lives in `tests/macro_rules.czet`.
 
 ---
 
@@ -263,10 +263,10 @@ monomorphization needed.
 ## 8. Compiling
 
 ```text
-czet -static tests/macro_rules.slt -o macro_rules
+czet -static tests/macro_rules.czet -o macro_rules
 ./macro_rules
    → Demo completa terminada.
 ```
 
-`tests/macro_rules.slt` is the section-by-section reference (1–2 basics,
+`tests/macro_rules.czet` is the section-by-section reference (1–2 basics,
 3–5 fragments, 6–10 repetition, 11 hygiene, 12 provenance, 13 arms).

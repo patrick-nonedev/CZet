@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/str.slt — <utils/str.h>. */
+/* tests/stdlib/str.czet — <utils/str.h>. */
 #include <stdio.h>
 #include <string.h>
 #include <utils/str.h>

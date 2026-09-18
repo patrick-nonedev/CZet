@@ -11,10 +11,10 @@ reflect_t r = _Reflect(int);            /* un tipo */
 reflect_t s = _Reflect(una_variable);   /* o una expresión */
 ```
 
-La demo completa está en `tests/reflect.slt`. Se compila con:
+La demo completa está en `tests/reflect.czet`. Se compila con:
 
 ```text
-czet -static tests/reflect.slt -o reflect
+czet -static tests/reflect.czet -o reflect
 ./reflect
    → [OK] reflect
 ```
@@ -188,11 +188,11 @@ reflect_t re = _Reflect(x + 1);      /* tipo de la expresión, sin evaluar */
 ## 10. Compilar
 
 ```text
-czet -static tests/reflect.slt -o reflect
+czet -static tests/reflect.czet -o reflect
 ./reflect
    → [OK] reflect
 ```
 
-`tests/reflect.slt` es la referencia sección por sección (bucle de struct,
+`tests/reflect.czet` es la referencia sección por sección (bucle de struct,
 `elem` de puntero/array, fields de union, `kind=10` de typedef,
 retorno/parámetros de función).

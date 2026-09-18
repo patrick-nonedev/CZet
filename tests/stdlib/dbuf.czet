@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/dbuf.slt — <utils/double_buffering.h> (SPSC, no threads). */
+/* tests/stdlib/dbuf.czet — <utils/double_buffering.h> (SPSC, no threads). */
 #include <stdio.h>
 #include <utils/double_buffering.h>
 

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/operators.slt — operator overloading demo.
+/* tests/operators.czet — operator overloading demo.
  *
  * `return-type _Operator ( Type , "op" ) { ... }` defines an operator for
  * user type `Type`.  The body takes the operands as pointers named `a`

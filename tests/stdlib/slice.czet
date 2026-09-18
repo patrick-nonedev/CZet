@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/slice.slt — <utils/slice.h> with CZet generics. */
+/* tests/stdlib/slice.czet — <utils/slice.h> with CZet generics. */
 #include <stdio.h>
 #include <utils/slice.h>
 

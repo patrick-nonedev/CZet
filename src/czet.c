@@ -483,8 +483,64 @@ static char *ensure_cache(FILE *self, const struct trailer *tr)
 
 /* =========================== driver ============================ */
 
+/* CZet sources needing explicit `-x c` wrapping: gcc keys language off
+   known suffixes, so unknown ones (.ct, .czet) must be wrapped.
+   Plain .c files need no wrapping: they pass through natively and get
+   -std=czet by default (needstd below).  Returns 1 if A needs wrapping. */
+static int is_wrapped_czet_src(const char *a)
+{
+    size_t n;
+    if (a == NULL || a[0] == '-' || a[0] == '\0')
+        return 0;
+    n = strlen(a);
+    if (n > 3 && strcmp(a + n - 3, ".ct") == 0)
+        return 1;
+    if (n > 5 && strcmp(a + n - 5, ".czet") == 0)
+        return 1;
+    return 0;
+}
+
+static void print_usage(const char *prog)
+{
+    printf("Usage: %s [options] file...\n"
+           "CZet compiler driver (self-contained GCC + musl/glibc).\n"
+           "\n"
+           "Options:\n"
+           "  -libc=musl|glibc|/path/sysroot\n"
+           "      Select the libc sysroot (default: musl, static).\n"
+           "  -static\n"
+           "      Fully static link (default mode is dynamic with\n"
+           "      -static-libgcc + pinned loader).\n"
+           "  -std=czet (default) | -std=gnu23\n"
+           "      -std=czet enables CZet extensions; any explicit -std\n"
+           "      disables the default.\n"
+           "  --extract-only\n"
+           "      Extract the embedded toolchain blob to cache and print\n"
+           "      its path.\n"
+           "  -h, --help\n"
+           "      Show this help.\n"
+           "  All other options are forwarded to the embedded xgcc.\n"
+           "\n"
+           "Source files:\n"
+           "  .ct, .czet   CZet sources (compiled as C with extensions).\n"
+           "  .c           Plain C sources (built with -std=czet by default).\n"
+           "\n"
+           "Examples:\n"
+           "  %s -static hello.ct -o hello\n"
+           "  %s -static hello.czet -o hello\n"
+           "  %s -static hello.c -o hello\n"
+           "  %s -libc=glibc -static hello.ct -o hello\n",
+           prog, prog, prog, prog, prog);
+}
+
 int main(int argc, char **argv)
 {
+    for (int a = 1; a < argc; a++)
+        if (strcmp(argv[a], "-h") == 0
+            || strcmp(argv[a], "--help") == 0) {
+            print_usage(argv[0]);
+            return 0;
+        }
     char exebuf[PATH_MAX];
     const char *exe = self_path(exebuf, sizeof(exebuf));
     if (!exe) {
@@ -597,10 +653,11 @@ int main(int argc, char **argv)
     }
 
     /* -std=czet by default unless set; detect explicit -static.
-       CZet sources (.slt) are C, but the gcc driver keys language off
-       known suffixes: wrap each .slt input in -x c ... -x none.  Skip the
-       -o parameter, which names an output, not an input. */
-    int nuser = 0, needstd = 1, is_static = 0, slt_extra = 0, skip_next = 0;
+       CZet sources (.ct, .czet) are C, but the gcc driver keys
+       language off known suffixes: wrap each such input in -x c ... -x none.
+       Plain .c inputs pass through directly (still built with -std=czet
+       when active).  Skip the -o parameter, which names an output. */
+    int nuser = 0, needstd = 1, is_static = 0, wrap_extra = 0, skip_next = 0;
     for (int a = 1; a < argc; a++) {
         if (strncmp(argv[a], "-libc=", 6) == 0)
             continue;
@@ -613,10 +670,8 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[a], "-o") == 0) {
             skip_next = 1;
         } else {
-            size_t alen = strlen(argv[a]);
-            if (argv[a][0] != '-' && alen > 4
-                && strcmp(argv[a] + alen - 4, ".slt") == 0)
-                slt_extra += 4;
+            if (is_wrapped_czet_src(argv[a]))
+                wrap_extra += 4;
         }
         nuser++;
     }
@@ -628,7 +683,7 @@ int main(int argc, char **argv)
        only; passed by absolute path AFTER user objects for link order. */
     char *utils_a = lcroot ? NULL : cat(syslib, "/libczet_utils.a");
     int nfix = 14 + (needstd ? 1 : 0);
-    char **args = calloc((size_t)(nfix + nuser + 3 + slt_extra),
+    char **args = calloc((size_t)(nfix + nuser + 3 + wrap_extra),
                          sizeof(char *));
     if (!args) {
         fprintf(stderr, "czet: out of memory.\n");
@@ -666,7 +721,6 @@ int main(int argc, char **argv)
 
     skip_next = 0;
     for (int a = 1; a < argc; a++) {
-        size_t alen;
         if (strncmp(argv[a], "-libc=", 6) == 0)
             continue;
         if (!skip_next && strcmp(argv[a], "-o") == 0) {
@@ -679,9 +733,7 @@ int main(int argc, char **argv)
             args[i++] = argv[a];
             continue;
         }
-        alen = strlen(argv[a]);
-        if (argv[a][0] != '-' && alen > 4
-            && strcmp(argv[a] + alen - 4, ".slt") == 0) {
+        if (is_wrapped_czet_src(argv[a])) {
             args[i++] = strdup("-x");
             args[i++] = strdup("c");
             args[i++] = argv[a];

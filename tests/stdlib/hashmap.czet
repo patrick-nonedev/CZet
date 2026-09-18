@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/hashmap.slt — <utils/hashmap.h>: 500 keys, rehash, delete. */
+/* tests/stdlib/hashmap.czet — <utils/hashmap.h>: 500 keys, rehash, delete. */
 #include <stdio.h>
 #include <utils/hashmap.h>
 

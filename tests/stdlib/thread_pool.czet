@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/thread_pool.slt — <utils/thread_pool.h>.
+/* tests/stdlib/thread_pool.czet — <utils/thread_pool.h>.
  * NOTE: pthread use needs explicit -pthread. Musl static needs none
  * (pthread lives in libc.a):
- *   czet -static tests/stdlib/thread_pool.slt -o thread_pool
+ *   czet -static tests/stdlib/thread_pool.czet -o thread_pool
  * glibc does:
- *   czet -libc=glibc -static -pthread tests/stdlib/thread_pool.slt -o thread_pool
+ *   czet -libc=glibc -static -pthread tests/stdlib/thread_pool.czet -o thread_pool
  */
 #include <stdatomic.h>
 #include <stdio.h>

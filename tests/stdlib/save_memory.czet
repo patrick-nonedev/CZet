@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/save_memory.slt — <utils/save_memory.h> with _Reflect. */
+/* tests/stdlib/save_memory.czet — <utils/save_memory.h> with _Reflect. */
 #include <stdio.h>
 #include <string.h>
 #include <utils/save_memory.h>

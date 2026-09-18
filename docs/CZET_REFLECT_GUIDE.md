@@ -12,10 +12,10 @@ reflect_t r = _Reflect(int);            /* a type */
 reflect_t s = _Reflect(some_variable);  /* or an expression */
 ```
 
-The full demo lives in `tests/reflect.slt`. Compile it with:
+The full demo lives in `tests/reflect.czet`. Compile it with:
 
 ```text
-czet -static tests/reflect.slt -o reflect
+czet -static tests/reflect.czet -o reflect
 ./reflect
    → [OK] reflect
 ```
@@ -190,11 +190,11 @@ reflect_t re = _Reflect(x + 1);      /* type of the expression, unevaluated */
 ## 10. Compiling
 
 ```text
-czet -static tests/reflect.slt -o reflect
+czet -static tests/reflect.czet -o reflect
 ./reflect
    → [OK] reflect
 ```
 
-`tests/reflect.slt` is the section-by-section reference (struct loop,
+`tests/reflect.czet` is the section-by-section reference (struct loop,
 pointer/array `elem`, union fields, typedef `kind=10`, function
 return/params).

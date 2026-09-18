@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/reflect.slt — _Reflect(T) -> reflect_t (primitive) demo.
+/* tests/reflect.czet — _Reflect(T) -> reflect_t (primitive) demo.
  *
  * reflect_t/reflect_field_t are primitive CZet types, always available
  * with no headers:

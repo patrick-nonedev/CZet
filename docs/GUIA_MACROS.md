@@ -19,7 +19,7 @@ tal cual y te toca un error de sintaxis normal.
 
 Las definiciones **solo** valen a nivel de fichero (`file scope`), son locales
 al translation unit y no se pueden redefinir. La demo completa está en
-`tests/macro_rules.slt`.
+`tests/macro_rules.czet`.
 
 ---
 
@@ -262,10 +262,10 @@ monomorfización.
 ## 8. Compilar
 
 ```text
-czet -static tests/macro_rules.slt -o macro_rules
+czet -static tests/macro_rules.czet -o macro_rules
 ./macro_rules
    → Demo completa terminada.
 ```
 
-`tests/macro_rules.slt` es la referencia sección por sección (1–2 básicos,
+`tests/macro_rules.czet` es la referencia sección por sección (1–2 básicos,
 3–5 fragmentos, 6–10 repeticiones, 11 higiene, 12 provenance, 13 brazos).

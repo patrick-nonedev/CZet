@@ -328,7 +328,6 @@ struct GTY(()) c_parser {
   bool czet_probe_committed;
   vec<c_token, va_gc> *czet_probe;
   vec<tree> * GTY((skip)) defers;
-  vec<vec<tree> *> * GTY((skip)) defers_stack;
   /* CZet _Macro expansion injection.  While non-NULL, peek/consume first
      serve the remaining tokens from this vector before falling back to the
      real lexer.  The injection frame owns everything that is pending after a
@@ -1930,7 +1929,8 @@ static void c_parser_initelt (c_parser *, struct obstack *);
 static void c_parser_initval (c_parser *, struct c_expr *,
 			      struct obstack *);
 static tree c_parser_compound_statement (c_parser *, location_t * = NULL);
-static location_t c_parser_compound_statement_nostart (c_parser *);
+static location_t c_parser_compound_statement_nostart (c_parser *, tree *);
+static tree c_czet_wrap_cleanup (location_t, tree, tree);
 static void c_parser_label (c_parser *, tree);
 static void c_parser_statement (c_parser *, bool *, location_t * = NULL);
 static void c_parser_statement_after_labels (c_parser *, bool *, tree,
@@ -9733,11 +9733,16 @@ c_parser_compound_statement (c_parser *parser, location_t *endlocp)
       return error_mark_node;
     }
   stmt = c_begin_compound_stmt (true);
-  location_t end_loc = c_parser_compound_statement_nostart (parser);
+  tree czet_cleanup = NULL_TREE;
+  location_t end_loc = c_parser_compound_statement_nostart (parser,
+							    &czet_cleanup);
   if (endlocp)
     *endlocp = end_loc;
 
-  return c_end_compound_stmt (brace_loc, stmt, true);
+  tree bind = c_end_compound_stmt (brace_loc, stmt, true);
+  if (czet_cleanup != NULL_TREE)
+    bind = c_czet_wrap_cleanup (brace_loc, bind, czet_cleanup);
+  return bind;
 }
 
 /* Diagnose errors related to imperfectly nested loops in an OMP
@@ -10209,13 +10214,49 @@ c_parser_flush_defers (vec<tree> *defers)
   defers->truncate (0);
 }
 
-static void
-c_parser_flush_all_defers (c_parser *parser)
+/* Drain the pending bodies of DEFERS into a detached cleanup statement
+   list in execution order (last registered runs first) and empty DEFERS.
+   Unlike c_parser_flush_defers, which emits the bodies inline, the returned
+   list is handed to the caller for deferred execution.  Returns NULL when
+   there is nothing pending.  */
+static tree
+c_parser_take_defers (vec<tree> *defers)
 {
-  if (parser->defers_stack == NULL)
-    return;
-  for (unsigned i = parser->defers_stack->length (); i-- > 0;)
-    c_parser_flush_defers ((*parser->defers_stack)[i]);
+  tree cleanup = NULL_TREE;
+  if (defers == NULL)
+    return NULL_TREE;
+  for (unsigned i = defers->length (); i-- > 0;)
+    append_to_statement_list ((*defers)[i], &cleanup);
+  defers->truncate (0);
+  return cleanup;
+}
+
+/* Wrap the just built block BIND so CLEANUP runs on every exit from it.
+   Implemented as BIND (TRY_FINALLY_EXPR (body, cleanup)): the gimplifier
+   routes normal, return, goto, break and continue exits through the cleanup,
+   so no exit site needs special handling.  The TRY stays inside the BIND to
+   keep the cleanup in the scope of the block locals it may reference.
+   TREE_SIDE_EFFECTS marks the generated node as effectful.  Blocks without
+   declarations may not produce a BIND_EXPR; then the TRY itself is the
+   block.  An empty body still needs a statement for the TRY operand.  */
+static tree
+c_czet_wrap_cleanup (location_t loc, tree bind, tree cleanup)
+{
+  if (bind == error_mark_node)
+    return bind;
+  if (bind == NULL_TREE)
+    return cleanup;
+  tree body = TREE_CODE (bind) == BIND_EXPR ? BIND_EXPR_BODY (bind) : bind;
+  if (body == NULL_TREE)
+    body = build_empty_stmt (loc);
+  tree t = build2 (TRY_FINALLY_EXPR, void_type_node, body, cleanup);
+  SET_EXPR_LOCATION (t, loc);
+  TREE_SIDE_EFFECTS (t) = 1;
+  if (TREE_CODE (bind) == BIND_EXPR)
+    BIND_EXPR_BODY (bind) = t;
+  else
+    bind = t;
+  return bind;
 }
 
 static void
@@ -10239,11 +10280,16 @@ c_parser_defer_statement (c_parser *parser)
 
 /* Parse a compound statement except for the opening brace.  This is
    used for parsing both compound statements and statement expressions
-   (which follow different paths to handling the opening).  */
+   (which follow different paths to handling the opening).  CZET_CLEANUP is
+   an out-param: on success it receives the block's pending defer bodies as
+   a cleanup statement list in execution order, or NULL when the block
+   registered none.  It is always assigned, so callers may pass an
+   uninitialized variable.  */
 
 static location_t
-c_parser_compound_statement_nostart (c_parser *parser)
+c_parser_compound_statement_nostart (c_parser *parser, tree *czet_cleanup)
 {
+  *czet_cleanup = NULL_TREE;
   bool last_stmt = false;
   bool last_label = false;
   bool save_valid_for_pragma = valid_location_for_stdc_pragma_p ();
@@ -10318,9 +10364,6 @@ c_parser_compound_statement_nostart (c_parser *parser)
   vec<tree> *defers_ptr = &defers;
   vec<tree> *saved_defers = parser->defers;
   parser->defers = defers_ptr;
-  if (parser->defers_stack == NULL)
-    parser->defers_stack = new vec<vec<tree> *> ();
-  parser->defers_stack->safe_push (defers_ptr);
   while (c_parser_next_token_is_not (parser, CPP_CLOSE_BRACE))
     {
       location_t loc = c_parser_peek_token (parser)->location;
@@ -10557,7 +10600,6 @@ c_parser_compound_statement_nostart (c_parser *parser)
       else if (c_parser_next_token_is (parser, CPP_EOF))
 	{
 	  c_parser_flush_defers (defers_ptr);
-	  parser->defers_stack->pop ();
 	  parser->defers = saved_defers;
 	  mark_valid_location_for_stdc_pragma (save_valid_for_pragma);
 	  c_parser_error (parser, "expected declaration or statement");
@@ -10570,7 +10612,6 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	      mark_valid_location_for_stdc_pragma (save_valid_for_pragma);
 	      error_at (loc, "expected %<}%> before %<else%>");
 	      c_parser_flush_defers (defers_ptr);
-	      parser->defers_stack->pop ();
 	      parser->defers = saved_defers;
 	      return c_parser_peek_token (parser)->location;
             }
@@ -10631,8 +10672,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
       else
 	add_structured_block_stmt (sl);
     }
-  c_parser_flush_defers (defers_ptr);
-  parser->defers_stack->pop ();
+  *czet_cleanup = c_parser_take_defers (defers_ptr);
   parser->defers = saved_defers;
   return endloc;
 }
@@ -11008,7 +11048,15 @@ c_parser_statement_after_labels (c_parser *parser, bool *if_p,
 	}
       if (c_parser_peek_2nd_token (parser)->type == CPP_SEMICOLON)
 	{
-	  c_parser_flush_all_defers (parser);
+	  if (parser->defers == NULL)
+	    {
+	      error_at (loc, "defer is only allowed inside a function body");
+	      c_parser_consume_token (parser);
+	      c_parser_consume_token (parser);
+	      parser->in_if_block = in_if_block;
+	      return;
+	    }
+	  c_parser_flush_defers (parser->defers);
 	  c_parser_consume_token (parser);
 	  c_parser_consume_token (parser);
 	  parser->in_if_block = in_if_block;
@@ -15320,7 +15368,14 @@ c_parser_postfix_expression (c_parser *parser)
 	    }
 	  c_omp_array_section_p = false;
 	  stmt = c_begin_stmt_expr ();
-	  c_parser_compound_statement_nostart (parser);
+	  tree czet_cleanup = NULL_TREE;
+	  c_parser_compound_statement_nostart (parser, &czet_cleanup);
+	  /* Statement expressions keep inline cleanup: wrapping the body in
+	     TRY_FINALLY would disturb the value semantics of STMT_EXPR, whose
+	     value is its last statement.  The cleanup runs at the normal end;
+	     abrupt exits (return/goto out) are not supported here.  */
+	  if (czet_cleanup != NULL_TREE)
+	    add_stmt (czet_cleanup);
 	  location_t close_loc = c_parser_peek_token (parser)->location;
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
@@ -18827,7 +18882,14 @@ c_parser_objc_try_catch_finally_statement (c_parser *parser)
 	}
       objc_begin_catch_clause (parameter_declaration);
       if (c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
-	c_parser_compound_statement_nostart (parser);
+	{
+	  /* ObjC-only path: keep inline cleanup at the normal end.  Abrupt
+	     exits specific to exception handling are out of scope.  */
+	  tree czet_cleanup = NULL_TREE;
+	  c_parser_compound_statement_nostart (parser, &czet_cleanup);
+	  if (czet_cleanup != NULL_TREE)
+	    add_stmt (czet_cleanup);
+	}
       objc_finish_catch_clause ();
     }
   if (c_parser_next_token_is_keyword (parser, RID_AT_FINALLY))

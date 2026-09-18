@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/server.slt — <utils/server.h>: TCP 127.0.0.1 with fork. */
+/* tests/stdlib/server.czet — <utils/server.h>: TCP 127.0.0.1 with fork. */
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <string.h>

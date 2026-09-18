@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/tbuf.slt — <utils/triple_buffering.h> (SPSC, no threads). */
+/* tests/stdlib/tbuf.czet — <utils/triple_buffering.h> (SPSC, no threads). */
 #include <stdio.h>
 #include <utils/triple_buffering.h>
 

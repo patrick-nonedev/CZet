@@ -1,6 +1,35 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/* Log-based assertions: each case appends one char per observable event,
+   then compares the whole trace.  Expected strings below encode the exact
+   execution order being pinned.  */
+static char logbuf[128];
+static int logpos;
+
+static void logc(char c)
+{
+    logbuf[logpos++] = c;
+    logbuf[logpos] = '\0';
+}
+
+static void logreset(void)
+{
+    logpos = 0;
+    logbuf[0] = '\0';
+}
+
+static int logcheck(const char *want)
+{
+    if (strcmp(logbuf, want) != 0)
+    {
+        printf("FAIL: got \"%s\", want \"%s\"\n", logbuf, want);
+        return 1;
+    }
+    return 0;
+}
 
 char* test()
 {
@@ -10,7 +39,7 @@ char* test()
     {
         free(buffer);
         buffer = NULL;
-        printf("buffer is freed (idk how to write it)\n");
+        printf("orig: buffer freed inside defer\n");
         return buffer;
     };
 
@@ -23,10 +52,211 @@ char* test()
     /* now it frees correctly */
 }
 
-int main()
+static void t_return(int early)
 {
-    if (test() == NULL)
-        printf("All test passed\n");
+    defer { logc('A'); };
+    defer { logc('B'); };
+    if (early)
+        return;
+    logc('M');
+}
 
+static void t_goto_fwd(int take)
+{
+    {
+        defer { logc('A'); };
+        if (take)
+            goto out;
+        logc('M');
+    }
+    logc('X');
+out:
+    logc('E');
+}
+
+static void t_goto_same(int take)
+{
+    defer { logc('A'); };
+    if (take)
+        goto out;
+    logc('M');
+out:
+    logc('E');
+}
+
+static void t_goto_bwd(void)
+{
+    int i = 0;
+again:
+    logc('w');
+    {
+        defer { logc('B'); };
+        logc('m');
+        if (++i < 2)
+            goto again;
+    }
+    logc('E');
+}
+
+static void t_break(void)
+{
+    while (1)
+    {
+        defer { logc('B'); };
+        logc('w');
+        break;
+    }
+    logc('E');
+}
+
+static void t_continue(void)
+{
+    for (int i = 0; i < 3; ++i)
+    {
+        defer { logc('C'); };
+        logc('w');
+        if (i < 2)
+            continue;
+        logc('t');
+    }
+}
+
+static void t_defer_semi(void)
+{
+    defer { logc('A'); };
+    {
+        defer { logc('B'); };
+        defer { logc('C'); };
+        defer;
+        logc('D');
+    }
+    logc('E');
+}
+
+static void t_nested(void)
+{
+    defer { logc('A'); };
+    {
+        defer { logc('B'); };
+        logc('m');
+    }
+    logc('E');
+}
+
+static void t_loop(void)
+{
+    for (int i = 0; i < 3; ++i)
+    {
+        defer { logc('D'); };
+        logc('w');
+    }
+}
+
+static int t_multi_return(int which)
+{
+    defer { logc('A'); };
+    if (which == 1)
+        return 1;
+    if (which == 2)
+        return 2;
+    logc('M');
     return 0;
+}
+
+static void t_switch(int v)
+{
+    switch (v)
+    {
+    case 1:
+        {
+            defer { logc('A'); };
+            logc('m');
+        }
+        logc('E');
+        break;
+    default:
+        logc('D');
+        break;
+    }
+}
+
+static void t_goto_into(int take)
+{
+    if (take)
+        goto mid;
+    logc('S');
+mid:
+    {
+        defer { logc('A'); };
+        logc('m');
+    }
+    logc('E');
+}
+
+static void t_goto_past_reg(void)
+{
+    goto mid;
+    {
+        defer { logc('A'); };
+mid:
+        logc('m');
+    }
+    logc('E');
+}
+
+int main(void)
+{
+    int fails = 0;
+    int r;
+
+    if (test() == NULL)
+        printf("orig return-in-defer ok\n");
+    else
+    {
+        printf("FAIL: orig return-in-defer\n");
+        fails++;
+    }
+
+    logreset(); t_return(1); fails += logcheck("BA");
+    logreset(); t_return(0); fails += logcheck("MBA");
+
+    logreset(); t_goto_fwd(1); fails += logcheck("AE");
+    logreset(); t_goto_fwd(0); fails += logcheck("MAXE");
+
+    logreset(); t_goto_same(1); fails += logcheck("EA");
+    logreset(); t_goto_same(0); fails += logcheck("MEA");
+
+    logreset(); t_goto_bwd(); fails += logcheck("wmBwmBE");
+
+    logreset(); t_break(); fails += logcheck("wBE");
+
+    logreset(); t_continue(); fails += logcheck("wCwCwtC");
+
+    logreset(); t_defer_semi(); fails += logcheck("CBDEA");
+
+    logreset(); t_nested(); fails += logcheck("mBEA");
+
+    logreset(); t_loop(); fails += logcheck("wDwDwD");
+
+    logreset(); r = t_multi_return(1);
+    if (r != 1) { printf("FAIL: multi_return(1) = %d\n", r); fails++; }
+    fails += logcheck("A");
+    logreset(); r = t_multi_return(2);
+    if (r != 2) { printf("FAIL: multi_return(2) = %d\n", r); fails++; }
+    fails += logcheck("A");
+    logreset(); r = t_multi_return(0);
+    if (r != 0) { printf("FAIL: multi_return(0) = %d\n", r); fails++; }
+    fails += logcheck("MA");
+
+    logreset(); t_switch(1); fails += logcheck("mAE");
+    logreset(); t_switch(0); fails += logcheck("D");
+
+    logreset(); t_goto_into(1); fails += logcheck("mAE");
+    logreset(); t_goto_into(0); fails += logcheck("SmAE");
+
+    logreset(); t_goto_past_reg(); fails += logcheck("mAE");
+
+    if (fails == 0)
+        printf("[OK] defer\n");
+    return fails != 0;
 }

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/btree.slt — <utils/btree.h> (tidwall, pristine). */
+/* tests/stdlib/btree.czet — <utils/btree.h> (tidwall, pristine). */
 #include <stdio.h>
 #include <utils/btree.h>
 

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/generic_memory.slt — memory layout in generic structs.
+/* tests/generic_memory.czet — memory layout in generic structs.
  *
  * A generic struct monomorphizes one concrete layout per instantiation;
  * the union payload shares storage with the trailing `T data` field.

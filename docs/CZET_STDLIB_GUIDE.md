@@ -6,8 +6,8 @@ stdlib **inside the binary**: include with `#include <utils/name.h>` and
 **no extra flags** (only `thread_pool.h` needs explicit `-pthread`, §9).
 
 ```text
-czet -static prog.slt -o prog          # no flags needed for utils
-czet -static -pthread pool.slt -o pool # thread_pool is the exception
+czet -static prog.ct -o prog          # no flags needed for utils
+czet -static -pthread pool.ct -o pool # thread_pool is the exception
 ```
 
 Header-only `static` code lives in `stdlib/utils/`; `libaco`, `critbit` and

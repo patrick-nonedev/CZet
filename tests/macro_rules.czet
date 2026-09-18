@@ -31,7 +31,7 @@
    name__czet<N> per expansion (body statics/locals never collide
    across invocations).  Caller-captured tokens are never renamed.
 
-   Build:  czet -static macro_rules.slt -o macro_rules && ./macro_rules
+   Build:  czet -static macro_rules.czet -o macro_rules && ./macro_rules
    ====================================================================== */
 
 /* ================== 1. ident + block: emit a struct ================= */

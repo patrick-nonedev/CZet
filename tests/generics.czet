@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/generics.slt — generics demo.
+/* tests/generics.czet — generics demo.
  *
  * The three monomorphized generic kinds:
  *   (1) FUNCTION generics:   T id<T>(T a, T b);

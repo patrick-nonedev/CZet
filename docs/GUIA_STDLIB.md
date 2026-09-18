@@ -7,8 +7,8 @@ una stdlib propia que **viaja dentro del binario**: se incluye con
 `thread_pool.h` pide `-pthread` explícito, ver §9).
 
 ```text
-czet -static prog.slt -o prog          # sin flags para utils
-czet -static -pthread pool.slt -o pool # solo thread_pool pide -pthread
+czet -static prog.ct -o prog          # sin flags para utils
+czet -static -pthread pool.ct -o pool # solo thread_pool pide -pthread
 ```
 
 Todo lo `static` header-only vive en `stdlib/utils/`; `libaco`, `critbit` y

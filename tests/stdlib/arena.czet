@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* tests/stdlib/arena.slt — <utils/arena.h>. */
+/* tests/stdlib/arena.czet — <utils/arena.h>. */
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
