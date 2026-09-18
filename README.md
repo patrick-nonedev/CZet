@@ -141,14 +141,27 @@ czet --help               # usage, source extensions and options
 
 ### Building
 
+- `make check-env` — verify the host provides everything the blob needs
+  (glibc headers + shared/static libs, musl headers + libs), with install
+  hints if something is missing.
 - `make build`  — configure + build the trimmed GCC tree into `./build`.
 - `make czet` — compile the static driver, assemble the blob
   (`./build/blob-root` → `./build/czet.blob.tar`), and sew everything into
   the final `./czet` (≈ 450 MB; the embedded `cc1` is ~400 MB by itself).
 
-The Makefile resolves the glibc/musl store paths automatically on NixOS,
-picking the x86-64 variants, and filters out 32-bit glibc roots. On a normal
-distro those variables can be overridden on the command line.
+Host detection is generic: the Makefile probes `cc`/`musl-gcc` and the
+usual FHS locations (`/usr/include`, `/usr/lib/<triplet>`, …) for the
+glibc and musl roots, so it works on normal distros without Nix. On NixOS
+(where there is no `/usr/include`) it falls back to the realized
+`/nix/store` paths. Every path can be overridden on the command line
+(`make MUSL_LIB=… MUSL_INC=… GLIBC_LIB=… GLIBC_STATIC=…`); run
+`make print-vars` to see what was detected.
+
+Example distro packages (toolchain + static libcs + headers):
+- Debian/Ubuntu: `apt install build-essential flex bison libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev libc6-dev musl-tools`
+- Fedora: `dnf install gcc make flex bison gmp-devel mpfr-devel libmpc-devel zlib-devel glibc-devel glibc-static musl-gcc musl-libc-static`
+- Arch: `pacman -S base-devel flex bison gmp mpfr libmpc zlib musl`
+- Alpine (musl-native): `apk add build-base flex bison gmp-dev mpfr-dev mpc1-dev zlib-dev musl-dev` (there is no system glibc there, so the glibc flavor additionally needs a glibc sysroot via `GLIBC_*` overrides).
 
 ## License
 
